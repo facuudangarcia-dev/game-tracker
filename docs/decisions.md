@@ -52,3 +52,16 @@ código o se actualiza la decisión explícitamente).
 20. **Expiración de sesión:** deslizante. Duración `AUTH_SESSION_TTL_DAYS` (30 días por
     defecto); el uso renueva la expiración, como máximo una vez por día.
 21. **Alcance de la Fase 2:** backend + frontend (login, registro, logout, rutas protegidas).
+
+## Fase 3 — Catálogo base (2026-10-04)
+
+22. **Plataformas precargadas:** lista amplia, incluye retro (PlayStation, Xbox, Nintendo, PC,
+    móviles y Sega). Si IGDB informa una plataforma que no está en la tabla, no se puede elegir.
+23. **PC:** una sola plataforma "PC"; las plataformas Windows, Mac y Linux de IGDB se mapean a ella.
+24. **Juegos manuales:** privados del usuario que los creó (no aparecen para otros usuarios). Para
+    un juego manual se puede elegir cualquier plataforma.
+25. **Géneros:** se guardan con nombre en español para la lista fija de géneros de IGDB. Un género
+    desconocido usará el nombre de IGDB hasta traducirlo.
+26. **IDs de IGDB provisionales:** los IDs externos de plataformas y géneros cargados en la Fase 3
+    no fueron verificados contra la API y son provisionales hasta validarlos en la Fase 4. Nunca se
+    cargan IDs no verificados; los faltantes o incorrectos se corrigen con una migración nueva.

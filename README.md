@@ -4,8 +4,9 @@ Aplicación web personal para registrar el historial con cada videojuego: juego 
 estado, partidas (playthroughs), tiempo jugado, sesiones, dificultad, rating, platino, fechas y
 notas.
 
-> **Estado actual: Fase 2 — autenticación.** Infraestructura completa + registro, login, logout y
-> rutas protegidas. Todavía **no** hay catálogo, biblioteca ni partidas.
+> **Estado actual: Fase 3 — catálogo base.** Infraestructura, autenticación y modelo de catálogo
+> (plataformas y géneros precargados, juegos y sus plataformas). Todavía **no** hay integración con
+> IGDB, biblioteca ni partidas.
 >
 > Las decisiones funcionales que completan la especificación están en
 > [`docs/decisions.md`](docs/decisions.md).
@@ -42,8 +43,12 @@ game-tracker/
 │   ├── src/
 │   │   ├── auth/             # sesiones, guard global, login/registro/logout
 │   │   ├── config/           # carga y validación de variables de entorno
+│   │   ├── catalog/          # proveedores de catálogo (hoy: identificador de IGDB)
 │   │   ├── database/         # opciones TypeORM, DataSource del CLI, migraciones
+│   │   ├── games/            # entidad Game (+ GamePlatform) y reglas de visibilidad
+│   │   ├── genres/           # géneros precargados (en español) y GET /api/genres
 │   │   ├── health/           # endpoint técnico GET /api/health
+│   │   ├── platforms/        # plataformas precargadas y GET /api/platforms
 │   │   ├── users/            # entidad User y servicio
 │   │   ├── app.module.ts
 │   │   ├── app.setup.ts      # prefijo /api, CORS, helmet, ValidationPipe
@@ -175,6 +180,23 @@ header del frontend muestra ese estado.
   detrás de un reverse proxy habrá que configurar `trust proxy` para que la IP sea la real.
 - Los errores llevan un `code` estable (`INVALID_CREDENTIALS`, `EMAIL_ALREADY_REGISTERED`,
   `UNAUTHENTICATED`); el frontend lo traduce a textos en español.
+
+## Modelo de catálogo
+
+- **`platforms`** — lista global precargada por migración (31, incluye retro). Los usuarios no
+  crean plataformas. `GET /api/platforms` la devuelve en orden de visualización.
+- **`genres`** — 23 géneros de IGDB con nombre en español. `GET /api/genres`.
+- **`platform_external_ids` / `genre_external_ids`** — correspondencia con los IDs de cada
+  proveedor (hoy IGDB). Windows, Mac y Linux de IGDB apuntan a "PC".
+- **`games`** — datos de catálogo, nunca datos personales. Un juego es **de catálogo**
+  (`provider` + `external_id`, único, visible para todos) o **manual** (`created_by_user_id`,
+  privado de su creador). Lo garantiza un CHECK en la base.
+- **`game_platforms`** (GamePlatform) — plataformas que informa el catálogo para cada juego;
+  restringen dónde se puede registrar. Los juegos manuales aceptan cualquier plataforma.
+- **`game_genres`** — géneros de cada juego.
+
+Las tablas de referencia se cargan con migraciones (datos inline, inmutables); los tests e2e
+nunca las vacían.
 
 ## Tests
 
