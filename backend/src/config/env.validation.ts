@@ -1,0 +1,102 @@
+import { plainToInstance } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+  validateSync,
+} from 'class-validator';
+
+export enum NodeEnv {
+  Development = 'development',
+  Test = 'test',
+  Production = 'production',
+}
+
+/**
+ * Environment variables required by the backend. The app refuses to start if
+ * any of them is missing or invalid, so misconfiguration fails fast.
+ */
+export class EnvironmentVariables {
+  @IsEnum(NodeEnv)
+  NODE_ENV: NodeEnv = NodeEnv.Development;
+
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  BACKEND_PORT: number = 3000;
+
+  @IsString()
+  @IsNotEmpty()
+  FRONTEND_ORIGIN: string;
+
+  @IsString()
+  @IsNotEmpty()
+  POSTGRES_HOST: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  POSTGRES_PORT: number;
+
+  @IsString()
+  @IsNotEmpty()
+  POSTGRES_USER: string;
+
+  @IsString()
+  @IsNotEmpty()
+  POSTGRES_PASSWORD: string;
+
+  @IsString()
+  @IsNotEmpty()
+  POSTGRES_DB: string;
+
+  @IsString()
+  @MinLength(32)
+  AUTH_SECRET: string;
+
+  @IsString()
+  @IsNotEmpty()
+  AUTH_COOKIE_NAME: string = 'gt_session';
+
+  @IsInt()
+  @Min(1)
+  AUTH_SESSION_TTL_DAYS: number = 30;
+
+  @IsInt()
+  @Min(1)
+  AUTH_RATE_LIMIT_PER_MINUTE: number = 10;
+
+  @IsString()
+  @IsNotEmpty()
+  CATALOG_PROVIDER: string = 'igdb';
+
+  // Optional until the catalog integration is implemented.
+  @IsOptional()
+  @IsString()
+  IGDB_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  IGDB_CLIENT_SECRET?: string;
+}
+
+export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
+  const validated = plainToInstance(EnvironmentVariables, config, {
+    enableImplicitConversion: true,
+  });
+  const errors = validateSync(validated, { skipMissingProperties: false });
+
+  if (errors.length > 0) {
+    const details = errors
+      .map((error) => `  - ${error.property}: ${Object.values(error.constraints ?? {}).join(', ')}`)
+      .join('\n');
+    throw new Error(`Invalid environment configuration:\n${details}`);
+  }
+
+  return validated;
+}

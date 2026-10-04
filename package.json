@@ -1,0 +1,25 @@
+{
+  "name": "game-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal video game tracker — convenience scripts for the frontend/backend packages",
+  "engines": {
+    "node": ">=24.9"
+  },
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "dev:backend": "npm --prefix backend run start:dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "migration:run": "npm --prefix backend run migration:run",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "format": "npm --prefix backend run format && npm --prefix frontend run format",
+    "format:check": "npm --prefix backend run format:check && npm --prefix frontend run format:check",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "test:e2e": "npm --prefix backend run test:e2e",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
+  }
+}
