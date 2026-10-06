@@ -2,15 +2,22 @@ import { ViewColumn, ViewEntity } from 'typeorm';
 import type { PlayStatus } from './library.constants';
 
 /**
- * Time of each playthrough in minutes: the manual time in MANUAL mode.
- * Single source of truth for playtime; everything else sums these values.
+ * Time of each playthrough in minutes: the manual time in MANUAL mode, the sum
+ * of its sessions in SESSIONS mode (never mixed). Single source of truth for
+ * playtime; everything else sums these values.
  */
 @ViewEntity({
   name: 'playthrough_times',
   expression: `
     SELECT p.id AS playthrough_id,
            p.user_game_id AS user_game_id,
-           (CASE WHEN p.time_mode = 'MANUAL' THEN p.manual_time_minutes ELSE 0 END)::int AS minutes
+           (CASE
+              WHEN p.time_mode = 'MANUAL' THEN p.manual_time_minutes
+              ELSE COALESCE(
+                (SELECT sum(s.duration_minutes) FROM gaming_sessions s WHERE s.playthrough_id = p.id),
+                0
+              )
+            END)::int AS minutes
     FROM playthroughs p
   `,
 })

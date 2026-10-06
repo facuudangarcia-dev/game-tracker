@@ -6,12 +6,15 @@ import { Platform } from '../platforms/platform.entity';
 import { DifficultiesController } from './difficulties.controller';
 import { DifficultiesService } from './difficulties.service';
 import { Difficulty } from './difficulty.entity';
+import { GamingSession } from './gaming-session.entity';
 import { LibraryController } from './library.controller';
 import { LibraryService } from './library.service';
 import { PlaythroughTime, UserGameSummary } from './library-views.entity';
 import { Playthrough } from './playthrough.entity';
 import { PlaythroughsController } from './playthroughs.controller';
 import { PlaythroughsService } from './playthroughs.service';
+import { PlaytimeController } from './playtime.controller';
+import { PlaytimeService } from './playtime.service';
 import { UserGameAccess } from './user-game-access.service';
 import { UserGame } from './user-game.entity';
 
@@ -21,6 +24,7 @@ import { UserGame } from './user-game.entity';
       UserGame,
       Playthrough,
       Difficulty,
+      GamingSession,
       PlaythroughTime,
       UserGameSummary,
       Platform,
@@ -28,8 +32,19 @@ import { UserGame } from './user-game.entity';
     GamesModule,
     CatalogModule,
   ],
-  controllers: [LibraryController, PlaythroughsController, DifficultiesController],
-  providers: [LibraryService, UserGameAccess, PlaythroughsService, DifficultiesService],
+  controllers: [
+    LibraryController,
+    PlaythroughsController,
+    PlaytimeController,
+    DifficultiesController,
+  ],
+  providers: [
+    LibraryService,
+    UserGameAccess,
+    PlaythroughsService,
+    PlaytimeService,
+    DifficultiesService,
+  ],
   exports: [LibraryService, UserGameAccess],
 })
 export class LibraryModule {}

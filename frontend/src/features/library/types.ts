@@ -87,10 +87,23 @@ export interface Playthrough {
   createdAt: string;
 }
 
+export interface GamingSession {
+  id: string;
+  playthroughId: string;
+  playthroughNumber: number;
+  /** ISO date-time. */
+  playedAt: string;
+  durationMinutes: number;
+  notes: string | null;
+  /** False while its playthrough is in MANUAL mode (kept, but not counted). */
+  countsTowardTime: boolean;
+}
+
 export interface UserGameDetails extends Omit<UserGameListItem, 'game'> {
   game: GameDetails;
   notes: string | null;
   playthroughs: Playthrough[];
+  sessions: GamingSession[];
   difficulties: Difficulty[];
 }
 

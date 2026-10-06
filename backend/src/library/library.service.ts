@@ -22,6 +22,7 @@ import { LibraryErrorCode, PlayStatus, TimeMode } from './library.constants';
 import { PlaythroughTime, UserGameSummary } from './library-views.entity';
 import { Playthrough } from './playthrough.entity';
 import { DifficultiesService } from './difficulties.service';
+import { PlaytimeService } from './playtime.service';
 import { DifficultyKind } from './difficulty.entity';
 import { UserGameAccess, userGameNotFound } from './user-game-access.service';
 import { UserGame } from './user-game.entity';
@@ -39,6 +40,7 @@ export class LibraryService {
     private readonly importer: CatalogImportService,
     private readonly access: UserGameAccess,
     private readonly difficulties: DifficultiesService,
+    private readonly playtime: PlaytimeService,
   ) {}
 
   /**
@@ -136,10 +138,11 @@ export class LibraryService {
       throw userGameNotFound();
     }
 
-    const [summaries, times, difficulties] = await Promise.all([
+    const [summaries, times, difficulties, sessions] = await Promise.all([
       this.summariesFor([userGame.id]),
       this.playthroughTimes.findBy({ userGameId: userGame.id }),
       this.difficulties.listFor(userGame.id),
+      this.playtime.listFor(userGame.id),
     ]);
     const minutesById = new Map(times.map((t) => [t.playthroughId, t.minutes]));
 
@@ -150,6 +153,7 @@ export class LibraryService {
       playthroughs: userGame.playthroughs.map((p) =>
         toPlaythroughDto(p, minutesById.get(p.id) ?? 0),
       ),
+      sessions,
       difficulties,
     };
   }

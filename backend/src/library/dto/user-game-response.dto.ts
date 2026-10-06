@@ -5,6 +5,7 @@ import { type PlatformResponseDto, toPlatformResponse } from '../../platforms/pl
 import type { PlayStatus, TimeMode } from '../library.constants';
 import type { UserGameSummary } from '../library-views.entity';
 import type { DifficultyResponseDto } from './difficulty.dto';
+import type { SessionResponseDto } from './session.dto';
 import type { Playthrough } from '../playthrough.entity';
 import type { UserGame } from '../user-game.entity';
 
@@ -56,6 +57,8 @@ export interface UserGameDetailsDto extends Omit<UserGameListItemDto, 'game'> {
   game: GameDetailsDto;
   notes: string | null;
   playthroughs: PlaythroughDto[];
+  /** All sessions of the game, most recent first. */
+  sessions: SessionResponseDto[];
   difficulties: DifficultyResponseDto[];
 }
 

@@ -41,4 +41,7 @@ export enum LibraryErrorCode {
   DifficultyInUse = 'DIFFICULTY_IN_USE',
   DifficultyNameTaken = 'DIFFICULTY_NAME_TAKEN',
   InvalidDifficultyOrder = 'INVALID_DIFFICULTY_ORDER',
+  SessionNotFound = 'SESSION_NOT_FOUND',
+  SessionsRequireSessionMode = 'SESSIONS_REQUIRE_SESSION_MODE',
+  ManualTimeRequiresManualMode = 'MANUAL_TIME_REQUIRES_MANUAL_MODE',
 }

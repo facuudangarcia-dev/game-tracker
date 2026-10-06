@@ -103,3 +103,7 @@ decisiones técnicas que afectan el comportamiento.
     para que la elección no sea ambigua. Una dificultad en uso se puede renombrar pero no
     eliminar (protegido también por la base). No se implementa "restaurar valores
     predeterminados": no existía en el modelo.
+37. **MANUAL → SESSIONS:** la creación de la sesión inicial con el tiempo manual se ofrece
+    (preseleccionada en la UI); si el usuario la rechaza, el tiempo manual queda guardado pero
+    no cuenta mientras la partida esté en modo sesiones. Las sesiones se pueden editar y eliminar
+    en cualquier modo; solo se pueden **agregar** en modo SESSIONS.
