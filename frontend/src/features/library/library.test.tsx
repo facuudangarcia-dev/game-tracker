@@ -62,10 +62,17 @@ describe('library', () => {
     mockApi({ 'GET /auth/me': me, 'GET /library': () => ({ status: 200, body: [libraryItem] }) });
     renderRoute('/games');
 
-    expect(await screen.findByRole('heading', { name: 'Hollow Knight' })).toBeInTheDocument();
-    expect(screen.getByText('PC')).toBeInTheDocument();
-    expect(screen.getByText('En progreso')).toBeInTheDocument();
-    expect(screen.getByText('14 h 32 min')).toBeInTheDocument();
+    const card = await screen.findByRole('article', { name: 'Hollow Knight' });
+    expect(within(card).getByRole('heading', { name: 'Hollow Knight' })).toBeInTheDocument();
+    expect(within(card).getByText('PC')).toBeInTheDocument();
+    expect(within(card).getByText('En progreso')).toBeInTheDocument();
+    expect(within(card).getByText('14 h 32 min')).toBeInTheDocument();
+    expect(within(card).getByText('95/100')).toBeInTheDocument();
+    expect(within(card).queryByRole('img', { name: 'Platino' })).not.toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Abrir Hollow Knight (PC)' })).toHaveAttribute(
+      'href',
+      '/games/ug-1',
+    );
   });
 
   it('shows an error with a retry action', async () => {

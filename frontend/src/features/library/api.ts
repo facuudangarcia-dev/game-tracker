@@ -2,13 +2,26 @@ import { apiFetch } from '../../lib/api/client';
 import type {
   AddUserGameInput,
   CatalogSearchResponse,
+  Genre,
+  LibraryFilters,
   Platform,
   UserGameDetails,
   UserGameListItem,
 } from './types';
 
-export function fetchLibrary(): Promise<UserGameListItem[]> {
-  return apiFetch<UserGameListItem[]>('/library');
+export function fetchLibrary(filters: LibraryFilters = {}): Promise<UserGameListItem[]> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== '') {
+      params.set(key, String(value));
+    }
+  }
+  const query = params.toString();
+  return apiFetch<UserGameListItem[]>(query ? `/library?${query}` : '/library');
+}
+
+export function fetchGenres(): Promise<Genre[]> {
+  return apiFetch<Genre[]>('/genres');
 }
 
 export function fetchUserGame(userGameId: string): Promise<UserGameDetails> {

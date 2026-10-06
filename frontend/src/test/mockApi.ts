@@ -11,12 +11,14 @@ type Handler = (request: MockRequest) => { status: number; body?: unknown };
 /**
  * Stubs global fetch with handlers keyed by "METHOD /path" (path without the
  * /api prefix, query string included). Health and an empty library are answered
- * by default; unhandled requests fail the test loudly.
+ * by default (also empty platforms and genres); unhandled requests fail the test loudly.
  */
 export function mockApi(customHandlers: Record<string, Handler>) {
   const handlers: Record<string, Handler> = {
     'GET /health': healthOk,
     'GET /library': () => ({ status: 200, body: [] }),
+    'GET /platforms': () => ({ status: 200, body: [] }),
+    'GET /genres': () => ({ status: 200, body: [] }),
     ...customHandlers,
   };
   const calls: MockRequest[] = [];

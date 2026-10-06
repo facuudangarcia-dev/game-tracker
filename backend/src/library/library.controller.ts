@@ -9,10 +9,12 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators';
 import type { User } from '../users/user.entity';
 import { CreateUserGameDto } from './dto/create-user-game.dto';
+import { ListLibraryQueryDto } from './dto/list-library.dto';
 import { UpdateUserGameDto } from './dto/update-user-game.dto';
 import type { UserGameDetailsDto, UserGameListItemDto } from './dto/user-game-response.dto';
 import { LibraryService } from './library.service';
@@ -23,8 +25,11 @@ export class LibraryController {
   constructor(private readonly library: LibraryService) {}
 
   @Get()
-  list(@CurrentUser() user: User): Promise<UserGameListItemDto[]> {
-    return this.library.list(user.id);
+  list(
+    @CurrentUser() user: User,
+    @Query() query: ListLibraryQueryDto,
+  ): Promise<UserGameListItemDto[]> {
+    return this.library.list(user.id, query);
   }
 
   @Post()

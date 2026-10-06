@@ -4,12 +4,14 @@ import { DataSource, In, Repository } from 'typeorm';
 import { CatalogGameNotFoundError, CatalogImportService } from '../catalog/catalog-import.service';
 import { CatalogUnavailableError } from '../catalog/game-catalog-provider';
 import { apiError } from '../common/api-error';
-import { isUniqueViolation } from '../database/postgres-errors';
+import { escapeLikePattern, isUniqueViolation } from '../database/postgres-errors';
 import { isPlatformAllowedForGame } from '../games/game-rules';
 import { Game } from '../games/game.entity';
 import { GamesService } from '../games/games.service';
 import { Platform } from '../platforms/platform.entity';
 import type { CreateUserGameDto } from './dto/create-user-game.dto';
+import type { ListLibraryQueryDto } from './dto/list-library.dto';
+import { sortLibrary } from './library-sort';
 import type { UpdateUserGameDto } from './dto/update-user-game.dto';
 import {
   toGameDetails,
@@ -120,14 +122,41 @@ export class LibraryService {
     return this.get(userId, userGameId);
   }
 
-  async list(userId: string): Promise<UserGameListItemDto[]> {
-    const userGames = await this.userGames.find({
-      where: { userId },
-      relations: { game: true, platform: true },
-      order: { createdAt: 'DESC' },
-    });
+  /** The user's library, filtered in SQL and sorted with explicit null handling. */
+  async list(userId: string, query: ListLibraryQueryDto = {}): Promise<UserGameListItemDto[]> {
+    const qb = this.userGames
+      .createQueryBuilder('ug')
+      .innerJoinAndSelect('ug.game', 'game')
+      .innerJoinAndSelect('ug.platform', 'platform')
+      .where('ug.user_id = :userId', { userId });
+
+    if (query.search) {
+      qb.andWhere('game.name ILIKE :search', { search: `%${escapeLikePattern(query.search)}%` });
+    }
+    if (query.platformId) {
+      qb.andWhere('ug.platform_id = :platformId', { platformId: query.platformId });
+    }
+    if (query.platinum !== undefined) {
+      qb.andWhere('ug.platinum_achieved = :platinum', { platinum: query.platinum });
+    }
+    if (query.genreId) {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM game_genres gg WHERE gg.game_id = game.id AND gg.genre_id = :genreId)',
+        { genreId: query.genreId },
+      );
+    }
+    if (query.status) {
+      // The status is derived from the playthroughs (view), never stored.
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM user_game_summaries s WHERE s.user_game_id = ug.id AND s.status = :status)',
+        { status: query.status },
+      );
+    }
+
+    const userGames = await qb.getMany();
     const summaries = await this.summariesFor(userGames.map((ug) => ug.id));
-    return userGames.map((userGame) => toListItem(userGame, summaries.get(userGame.id)!));
+    const items = userGames.map((userGame) => toListItem(userGame, summaries.get(userGame.id)!));
+    return sortLibrary(items, query.sort, query.order);
   }
 
   async get(userId: string, userGameId: string): Promise<UserGameDetailsDto> {

@@ -116,6 +116,21 @@ export interface UserGameDetails extends Omit<UserGameListItem, 'game'> {
   difficulties: Difficulty[];
 }
 
+export type LibrarySortField =
+  'name' | 'createdAt' | 'totalMinutes' | 'rating' | 'startDate' | 'completionDate';
+export type SortOrder = 'asc' | 'desc';
+
+/** Query of the library list (all optional; sent as query string). */
+export interface LibraryFilters {
+  search?: string;
+  status?: PlayStatus;
+  platformId?: string;
+  genreId?: string;
+  platinum?: 'true' | 'false';
+  sort?: LibrarySortField;
+  order?: SortOrder;
+}
+
 /** Exactly one game source (catalog result, existing game or new manual game). */
 export type AddUserGameInput = { platformId: string } & (
   | { gameId: string }
