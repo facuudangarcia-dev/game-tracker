@@ -61,6 +61,17 @@ export interface UserGameListItem {
   createdAt: string;
 }
 
+export type DifficultyKind = 'PLAYTHROUGH' | 'PLATINUM';
+
+export interface Difficulty {
+  id: string;
+  kind: DifficultyKind;
+  name: string;
+  position: number;
+  /** In use: can be renamed but not deleted. */
+  inUse: boolean;
+}
+
 export interface Playthrough {
   id: string;
   number: number;
@@ -68,6 +79,7 @@ export interface Playthrough {
   status: PlayStatus;
   startDate: string | null;
   completionDate: string | null;
+  difficulty: { id: string; name: string } | null;
   timeMode: TimeMode;
   manualTimeMinutes: number;
   minutes: number;
@@ -79,6 +91,7 @@ export interface UserGameDetails extends Omit<UserGameListItem, 'game'> {
   game: GameDetails;
   notes: string | null;
   playthroughs: Playthrough[];
+  difficulties: Difficulty[];
 }
 
 /** Exactly one game source (catalog result, existing game or new manual game). */

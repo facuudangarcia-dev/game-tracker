@@ -92,3 +92,14 @@ decisiones técnicas que afectan el comportamiento.
     de PostgreSQL (`playthrough_times`, `user_game_summaries`); nunca se almacenan.
 33. **Juegos manuales:** eliminar un `UserGame` no elimina el juego manual; sigue siendo privado
     de su creador y puede volver a agregarse.
+34. **Salir de COMPLETED:** cuando una partida deja de estar completada se borra solo su fecha de
+    finalización (PENDING e IN_PROGRESS no pueden tenerla); nombre, inicio, dificultad, tiempo,
+    sesiones y notas se conservan.
+35. **Fechas futuras:** las fechas son días de calendario sin zona horaria. El backend acepta
+    como máximo "hoy" en la zona horaria más adelantada (UTC+14), para no rechazar el "hoy" local
+    de ningún usuario; el frontend valida contra el "hoy" local. Los timestamps (sesiones)
+    toleran 5 minutos de desfase de reloj.
+36. **Dificultades:** los nombres son únicos dentro de cada lista (sin distinguir mayúsculas),
+    para que la elección no sea ambigua. Una dificultad en uso se puede renombrar pero no
+    eliminar (protegido también por la base). No se implementa "restaurar valores
+    predeterminados": no existía en el modelo.

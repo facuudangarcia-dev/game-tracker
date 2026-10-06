@@ -21,6 +21,9 @@ import {
 import { LibraryErrorCode, PlayStatus, TimeMode } from './library.constants';
 import { PlaythroughTime, UserGameSummary } from './library-views.entity';
 import { Playthrough } from './playthrough.entity';
+import { DifficultiesService } from './difficulties.service';
+import { DifficultyKind } from './difficulty.entity';
+import { UserGameAccess, userGameNotFound } from './user-game-access.service';
 import { UserGame } from './user-game.entity';
 
 @Injectable()
@@ -34,6 +37,8 @@ export class LibraryService {
     @InjectRepository(Platform) private readonly platforms: Repository<Platform>,
     private readonly games: GamesService,
     private readonly importer: CatalogImportService,
+    private readonly access: UserGameAccess,
+    private readonly difficulties: DifficultiesService,
   ) {}
 
   /**
@@ -94,6 +99,7 @@ export class LibraryService {
           timeMode: TimeMode.Manual,
           manualTimeMinutes: 0,
         });
+        await this.difficulties.createDefaults(manager, userGame.id, DifficultyKind.Playthrough);
         return userGame.id;
       });
     } catch (error) {
@@ -123,16 +129,17 @@ export class LibraryService {
   async get(userId: string, userGameId: string): Promise<UserGameDetailsDto> {
     const userGame = await this.userGames.findOne({
       where: { id: userGameId, userId },
-      relations: { game: { genres: true }, platform: true, playthroughs: true },
+      relations: { game: { genres: true }, platform: true, playthroughs: { difficulty: true } },
       order: { playthroughs: { number: 'ASC' } },
     });
     if (!userGame) {
       throw userGameNotFound();
     }
 
-    const [summaries, times] = await Promise.all([
+    const [summaries, times, difficulties] = await Promise.all([
       this.summariesFor([userGame.id]),
       this.playthroughTimes.findBy({ userGameId: userGame.id }),
+      this.difficulties.listFor(userGame.id),
     ]);
     const minutesById = new Map(times.map((t) => [t.playthroughId, t.minutes]));
 
@@ -143,6 +150,7 @@ export class LibraryService {
       playthroughs: userGame.playthroughs.map((p) =>
         toPlaythroughDto(p, minutesById.get(p.id) ?? 0),
       ),
+      difficulties,
     };
   }
 
@@ -152,7 +160,7 @@ export class LibraryService {
     userGameId: string,
     dto: UpdateUserGameDto,
   ): Promise<UserGameDetailsDto> {
-    const userGame = await this.requireOwned(userId, userGameId);
+    const userGame = await this.access.requireOwned(userId, userGameId);
     const changes: Partial<UserGame> = {};
     if (dto.rating !== undefined) changes.rating = dto.rating;
     if (dto.notes !== undefined) changes.notes = dto.notes;
@@ -168,18 +176,6 @@ export class LibraryService {
     if (!result.affected) {
       throw userGameNotFound();
     }
-  }
-
-  /**
-   * Ownership check used by every nested resource: another user's UserGame is
-   * indistinguishable from a missing one (404).
-   */
-  async requireOwned(userId: string, userGameId: string): Promise<UserGame> {
-    const userGame = await this.userGames.findOneBy({ id: userGameId, userId });
-    if (!userGame) {
-      throw userGameNotFound();
-    }
-    return userGame;
   }
 
   private async resolveGame(userId: string, dto: CreateUserGameDto): Promise<Game> {
@@ -216,14 +212,6 @@ export class LibraryService {
     const rows = await this.summaries.findBy({ userGameId: In(userGameIds) });
     return new Map(rows.map((row) => [row.userGameId, row]));
   }
-}
-
-export function userGameNotFound() {
-  return apiError(
-    HttpStatus.NOT_FOUND,
-    LibraryErrorCode.UserGameNotFound,
-    'Game not found in library',
-  );
 }
 
 function gameNotFound() {

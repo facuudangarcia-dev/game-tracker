@@ -4,6 +4,7 @@ import { type GenreResponseDto, toGenreResponse } from '../../genres/genres.cont
 import { type PlatformResponseDto, toPlatformResponse } from '../../platforms/platforms.controller';
 import type { PlayStatus, TimeMode } from '../library.constants';
 import type { UserGameSummary } from '../library-views.entity';
+import type { DifficultyResponseDto } from './difficulty.dto';
 import type { Playthrough } from '../playthrough.entity';
 import type { UserGame } from '../user-game.entity';
 
@@ -30,6 +31,7 @@ export interface PlaythroughDto {
   status: PlayStatus;
   startDate: string | null;
   completionDate: string | null;
+  difficulty: { id: string; name: string } | null;
   timeMode: TimeMode;
   manualTimeMinutes: number;
   /** Effective time of the playthrough according to its mode. */
@@ -54,6 +56,7 @@ export interface UserGameDetailsDto extends Omit<UserGameListItemDto, 'game'> {
   game: GameDetailsDto;
   notes: string | null;
   playthroughs: PlaythroughDto[];
+  difficulties: DifficultyResponseDto[];
 }
 
 export function toGameSummary(game: Game): GameSummaryDto {
@@ -87,6 +90,9 @@ export function toPlaythroughDto(playthrough: Playthrough, minutes: number): Pla
     status: playthrough.status,
     startDate: playthrough.startDate,
     completionDate: playthrough.completionDate,
+    difficulty: playthrough.difficulty
+      ? { id: playthrough.difficulty.id, name: playthrough.difficulty.name }
+      : null,
     timeMode: playthrough.timeMode,
     manualTimeMinutes: playthrough.manualTimeMinutes,
     minutes,

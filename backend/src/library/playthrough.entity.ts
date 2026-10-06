@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -16,6 +17,7 @@ import {
   PLAYTHROUGH_NAME_MAX_LENGTH,
   TimeMode,
 } from './library.constants';
+import { Difficulty } from './difficulty.entity';
 import { UserGame } from './user-game.entity';
 
 /**
@@ -65,6 +67,16 @@ export class Playthrough {
 
   @Column({ type: 'varchar', length: 20, default: PlayStatus.Pending })
   status: PlayStatus;
+
+  /** A PLAYTHROUGH-kind difficulty of the same UserGame (checked by the service). */
+  @Index('IDX_playthroughs_difficulty_id')
+  @Column({ name: 'difficulty_id', type: 'uuid', nullable: true })
+  difficultyId: string | null;
+
+  /** NO ACTION: a difficulty in use can't be deleted (also deleted together with the UserGame). */
+  @ManyToOne(() => Difficulty, { onDelete: 'NO ACTION', nullable: true })
+  @JoinColumn({ name: 'difficulty_id' })
+  difficulty: Difficulty | null;
 
   @Column({ name: 'start_date', type: 'date', nullable: true })
   startDate: string | null;
