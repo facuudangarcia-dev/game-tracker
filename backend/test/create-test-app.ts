@@ -38,6 +38,7 @@ export async function createTestApp(): Promise<TestApp> {
   const dataSource = app.get(DataSource);
   const resetDatabase = async () => {
     const tables = dataSource.entityMetadatas
+      .filter((meta) => meta.tableType !== 'view')
       .map((meta) => meta.tableName)
       .filter((table) => !REFERENCE_TABLES.has(table))
       .map((table) => `"${table}"`)

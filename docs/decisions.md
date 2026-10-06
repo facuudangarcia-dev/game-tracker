@@ -81,3 +81,14 @@ código o se actualiza la decisión explícitamente).
     los 33 mapeos de plataformas, los 23 de géneros y los 6 tipos de juego permitidos. Se agregó
     Nintendo Switch 2 = **508** (migración `MapSwitch2ToIgdb`). Los IDs dejan de ser
     provisionales (#26).
+
+## V1 — Fases 5 a 12 (2026-10-06)
+
+Decisiones definidas en el prompt de cierre de V1; aquí solo las interpretaciones y las
+decisiones técnicas que afectan el comportamiento.
+
+32. **Valores derivados:** el estado del `UserGame`, su fecha de inicio (inicio más antiguo), su
+    fecha de finalización (la **primera** finalización) y su tiempo total se calculan en vistas
+    de PostgreSQL (`playthrough_times`, `user_game_summaries`); nunca se almacenan.
+33. **Juegos manuales:** eliminar un `UserGame` no elimina el juego manual; sigue siendo privado
+    de su creador y puede volver a agregarse.

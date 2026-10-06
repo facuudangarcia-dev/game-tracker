@@ -9,6 +9,7 @@ import { DatabaseModule } from './database/database.module';
 import { GamesModule } from './games/games.module';
 import { GenresModule } from './genres/genres.module';
 import { HealthModule } from './health/health.module';
+import { LibraryModule } from './library/library.module';
 import { PlatformsModule } from './platforms/platforms.module';
 import { UsersModule } from './users/users.module';
 
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     GamesModule,
     AssetsModule,
     CatalogModule,
+    LibraryModule,
   ],
 })
 export class AppModule {}
