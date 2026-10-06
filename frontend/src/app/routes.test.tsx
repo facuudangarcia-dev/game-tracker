@@ -9,14 +9,14 @@ describe('app routes', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the home page for a logged-in user', async () => {
+  it('redirects / to the library for a logged-in user', async () => {
     mockApi({
       'GET /health': healthOk,
       'GET /auth/me': () => ({ status: 200, body: testUser }),
     });
     renderRoute('/');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Game Tracker' })).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mis juegos' })).toBeVisible();
     expect(await screen.findByText('API: conectada')).toBeInTheDocument();
   });
 

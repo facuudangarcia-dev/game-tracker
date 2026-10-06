@@ -10,9 +10,15 @@ type Handler = (request: MockRequest) => { status: number; body?: unknown };
 
 /**
  * Stubs global fetch with handlers keyed by "METHOD /path" (path without the
- * /api prefix). Unhandled requests fail the test loudly.
+ * /api prefix, query string included). Health and an empty library are answered
+ * by default; unhandled requests fail the test loudly.
  */
-export function mockApi(handlers: Record<string, Handler>) {
+export function mockApi(customHandlers: Record<string, Handler>) {
+  const handlers: Record<string, Handler> = {
+    'GET /health': healthOk,
+    'GET /library': () => ({ status: 200, body: [] }),
+    ...customHandlers,
+  };
   const calls: MockRequest[] = [];
 
   const fetchMock = vi.fn((input: string, init: RequestInit = {}) => {

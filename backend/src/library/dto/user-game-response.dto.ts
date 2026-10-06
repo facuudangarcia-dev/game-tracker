@@ -46,11 +46,13 @@ export interface UserGameListItemDto {
   startDate: string | null;
   completionDate: string | null;
   totalMinutes: number;
+  rating: number | null;
   createdAt: string;
 }
 
 export interface UserGameDetailsDto extends Omit<UserGameListItemDto, 'game'> {
   game: GameDetailsDto;
+  notes: string | null;
   playthroughs: PlaythroughDto[];
 }
 
@@ -102,6 +104,7 @@ export function toListItem(userGame: UserGame, summary: UserGameSummary): UserGa
     startDate: summary.startDate,
     completionDate: summary.completionDate,
     totalMinutes: summary.totalMinutes,
+    rating: userGame.rating,
     createdAt: userGame.createdAt.toISOString(),
   };
 }

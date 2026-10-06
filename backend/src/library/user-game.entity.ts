@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -13,6 +14,7 @@ import {
 import { Game } from '../games/game.entity';
 import { Platform } from '../platforms/platform.entity';
 import { User } from '../users/user.entity';
+import { NOTE_MAX_LENGTH, RATING_MAX, RATING_MIN } from './library.constants';
 import { Playthrough } from './playthrough.entity';
 
 /**
@@ -21,6 +23,11 @@ import { Playthrough } from './playthrough.entity';
  */
 @Entity({ name: 'user_games' })
 @Unique('UQ_user_games_user_game_platform', ['userId', 'gameId', 'platformId'])
+@Check(
+  'CHK_user_games_rating_range',
+  `"rating" IS NULL OR ("rating" >= ${RATING_MIN} AND "rating" <= ${RATING_MAX})`,
+)
+@Check('CHK_user_games_notes_length', `char_length("notes") <= ${NOTE_MAX_LENGTH}`)
 export class UserGame {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -52,6 +59,14 @@ export class UserGame {
   @ManyToOne(() => Platform, { onDelete: 'NO ACTION', nullable: false })
   @JoinColumn({ name: 'platform_id' })
   platform: Platform;
+
+  /** Personal rating, integer 10-100; null means not rated. */
+  @Column({ type: 'smallint', nullable: true })
+  rating: number | null;
+
+  /** General note about the game (plain text). */
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
 
   @OneToMany(() => Playthrough, (playthrough) => playthrough.userGame)
   playthroughs: Playthrough[];

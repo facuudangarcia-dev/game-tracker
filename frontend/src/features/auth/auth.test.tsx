@@ -28,7 +28,7 @@ describe('authentication flow', () => {
           return { status: 200, body: testUser };
         },
       });
-      const { router } = renderRoute('/?tab=1');
+      const { router } = renderRoute('/games?tab=1');
 
       expect(await screen.findByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe('/login');
@@ -36,7 +36,7 @@ describe('authentication flow', () => {
       await fillCredentials('Player@Example.com ', password);
       await userEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/games'));
       expect(router.state.location.search).toBe('?tab=1');
       expect(calls.find((c) => c.path === '/auth/login')?.body).toEqual({
         email: 'Player@Example.com',
@@ -48,7 +48,7 @@ describe('authentication flow', () => {
       mockApi({ 'GET /health': healthOk, 'GET /auth/me': () => ({ status: 200, body: testUser }) });
       const { router } = renderRoute('/login');
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/games'));
     });
   });
 
@@ -134,7 +134,7 @@ describe('authentication flow', () => {
       await fillCredentials('player@example.com', password);
       await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/games'));
       expect(await screen.findByRole('button', { name: 'Menú de usuario' })).toBeInTheDocument();
     });
   });
@@ -146,7 +146,7 @@ describe('authentication flow', () => {
         'GET /auth/me': () => ({ status: 200, body: testUser }),
         'POST /auth/logout': () => ({ status: 204 }),
       });
-      const { router } = renderRoute('/');
+      const { router } = renderRoute('/games');
 
       await userEvent.click(await screen.findByRole('button', { name: 'Menú de usuario' }));
       expect(screen.getByText(testUser.email)).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe('authentication flow', () => {
 
   it('treats any 401 from the API as an ended session', async () => {
     mockApi({ 'GET /health': healthOk, 'GET /auth/me': () => ({ status: 200, body: testUser }) });
-    const { router, queryClient } = renderRoute('/');
+    const { router, queryClient } = renderRoute('/games');
     await screen.findByRole('button', { name: 'Menú de usuario' });
 
     // Simulates a feature query failing because the session expired server-side.

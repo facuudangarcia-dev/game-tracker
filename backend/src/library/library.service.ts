@@ -10,6 +10,7 @@ import { Game } from '../games/game.entity';
 import { GamesService } from '../games/games.service';
 import { Platform } from '../platforms/platform.entity';
 import type { CreateUserGameDto } from './dto/create-user-game.dto';
+import type { UpdateUserGameDto } from './dto/update-user-game.dto';
 import {
   toGameDetails,
   toListItem,
@@ -138,10 +139,27 @@ export class LibraryService {
     return {
       ...toListItem(userGame, summaries.get(userGame.id)!),
       game: toGameDetails(userGame.game),
+      notes: userGame.notes,
       playthroughs: userGame.playthroughs.map((p) =>
         toPlaythroughDto(p, minutesById.get(p.id) ?? 0),
       ),
     };
+  }
+
+  /** Updates personal data (rating, notes). Omitted fields stay unchanged. */
+  async update(
+    userId: string,
+    userGameId: string,
+    dto: UpdateUserGameDto,
+  ): Promise<UserGameDetailsDto> {
+    const userGame = await this.requireOwned(userId, userGameId);
+    const changes: Partial<UserGame> = {};
+    if (dto.rating !== undefined) changes.rating = dto.rating;
+    if (dto.notes !== undefined) changes.notes = dto.notes;
+    if (Object.keys(changes).length > 0) {
+      await this.userGames.update({ id: userGame.id }, changes);
+    }
+    return this.get(userId, userGame.id);
   }
 
   /** Deletes the user's record and all its personal data; never the Game or Platform. */
