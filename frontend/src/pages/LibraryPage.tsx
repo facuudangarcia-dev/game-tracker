@@ -8,6 +8,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { AddGameDialog } from '../features/library/AddGameDialog';
 import { LibraryCard } from '../features/library/LibraryCard';
 import { useLibrary } from '../features/library/queries';
@@ -20,6 +21,7 @@ export function LibraryPage() {
   const library = useLibrary();
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   return (
     <Stack spacing={3}>
@@ -83,9 +85,10 @@ export function LibraryPage() {
       <AddGameDialog
         open={adding}
         onClose={() => setAdding(false)}
-        onAdded={() => {
+        onAdded={(userGame) => {
           setAdding(false);
           setNotice(t.added);
+          void navigate(`/games/${userGame.id}`);
         }}
       />
       <Snackbar

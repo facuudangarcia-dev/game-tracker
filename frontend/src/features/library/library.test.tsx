@@ -40,9 +40,9 @@ const created = (name = 'X') => ({
 });
 
 async function openDialog() {
-  renderRoute('/games');
+  const { router } = renderRoute('/games');
   await userEvent.click(await screen.findByRole('button', { name: 'Agregar juego' }));
-  return screen.findByRole('dialog');
+  return { dialog: await screen.findByRole('dialog'), router };
 }
 
 describe('library', () => {
@@ -90,7 +90,7 @@ describe('library', () => {
         }),
         'POST /library': () => created('The Witcher 3: Wild Hunt'),
       });
-      const dialog = await openDialog();
+      const { dialog, router } = await openDialog();
 
       await userEvent.type(within(dialog).getByLabelText('Buscar juego'), 'witcher');
       await userEvent.click(await within(dialog).findByText('The Witcher 3: Wild Hunt'));
@@ -106,7 +106,8 @@ describe('library', () => {
         within(dialog).getByRole('button', { name: 'Agregar a mi biblioteca' }),
       );
 
-      expect(await screen.findByText('Juego agregado a tu biblioteca.')).toBeInTheDocument();
+      // The new game opens in its detail page.
+      await waitFor(() => expect(router.state.location.pathname).toBe('/games/ug-1'));
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
         platformId: ps4.id,
         catalog: { provider: 'igdb', externalId: '1942' },
@@ -123,7 +124,7 @@ describe('library', () => {
         }),
         'POST /library': () => created(),
       });
-      const dialog = await openDialog();
+      const { dialog } = await openDialog();
 
       await userEvent.type(within(dialog).getByLabelText('Buscar juego'), 'witcher');
       await userEvent.click(await within(dialog).findByText('The Witcher 3: Wild Hunt'));
@@ -146,7 +147,7 @@ describe('library', () => {
         'GET /platforms': () => ({ status: 200, body: [ps4, pc, gb] }),
         'POST /library': () => created('Mi homebrew'),
       });
-      const dialog = await openDialog();
+      const { dialog } = await openDialog();
 
       await userEvent.click(within(dialog).getByRole('button', { name: 'Juego manual' }));
       await userEvent.type(within(dialog).getByLabelText(/Nombre del juego/), '  Mi homebrew ');
@@ -170,7 +171,7 @@ describe('library', () => {
         'GET /platforms': () => ({ status: 200, body: [ps4, pc, gb] }),
         'POST /library': () => ({ status: 409, body: { code: 'USER_GAME_ALREADY_EXISTS' } }),
       });
-      const dialog = await openDialog();
+      const { dialog } = await openDialog();
 
       await userEvent.click(within(dialog).getByRole('button', { name: 'Juego manual' }));
       await userEvent.type(within(dialog).getByLabelText(/Nombre del juego/), 'Dup');
@@ -193,7 +194,7 @@ describe('library', () => {
           body: { results: [], catalogAvailable: false },
         }),
       });
-      const dialog = await openDialog();
+      const { dialog } = await openDialog();
 
       await userEvent.type(within(dialog).getByLabelText('Buscar juego'), 'zelda');
 

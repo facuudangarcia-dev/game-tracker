@@ -1,6 +1,7 @@
 import { Navigate, type RouteObject } from 'react-router';
 import { RedirectIfAuthenticated, RequireAuth } from '../features/auth/AuthGuards';
 import { AppLayout } from '../layouts/AppLayout';
+import { GameDetailPage } from '../pages/GameDetailPage';
 import { LibraryPage } from '../pages/LibraryPage';
 import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -26,6 +27,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <Navigate to="/games" replace /> },
           { path: 'games', element: <LibraryPage /> },
+          { path: 'games/:userGameId', element: <GameDetailPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

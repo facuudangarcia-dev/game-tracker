@@ -7,7 +7,8 @@ interface GameCoverProps {
   src: string | null;
   /** Game name, used as alt text. */
   name: string;
-  width?: number | string;
+  /** Fixed or responsive width, e.g. { xs: 160, md: 200 }. */
+  width?: number | string | Partial<Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', number | string>>;
   /** No rounded corners (e.g. flush at the top of a card). */
   square?: boolean;
 }
