@@ -65,3 +65,19 @@ código o se actualiza la decisión explícitamente).
 26. **IDs de IGDB provisionales:** los IDs externos de plataformas y géneros cargados en la Fase 3
     no fueron verificados contra la API y son provisionales hasta validarlos en la Fase 4. Nunca se
     cargan IDs no verificados; los faltantes o incorrectos se corrigen con una migración nueva.
+
+## Fase 4 — Catálogo externo (2026-10-04)
+
+27. **Tipos de entrada de IGDB:** se buscan e importan juego principal, remake, remaster, port,
+    versión expandida y expansión independiente. Se excluyen DLC, expansiones, bundles, mods,
+    episodios, temporadas, packs y updates.
+28. **Búsqueda:** consulta IGDB y combina con los juegos ya importados y con los juegos manuales
+    del propio usuario, marcando los ya importados. Si IGDB falla, devuelve solo los resultados
+    locales e indica que el catálogo externo no está disponible.
+29. **Resumen:** se guarda y se muestra en inglés, tal como lo provee IGDB.
+30. **Miniaturas de búsqueda:** el backend hace de proxy hacia el CDN de imágenes de IGDB, sin
+    almacenarlas. La portada se descarga y se almacena al importar el juego (#15).
+31. **IDs de IGDB verificados (2026-10-06):** `catalog:verify-igdb` contra la API real confirmó
+    los 33 mapeos de plataformas, los 23 de géneros y los 6 tipos de juego permitidos. Se agregó
+    Nintendo Switch 2 = **508** (migración `MapSwitch2ToIgdb`). Los IDs dejan de ser
+    provisionales (#26).

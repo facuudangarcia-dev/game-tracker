@@ -115,6 +115,15 @@ describe('Catalog base: platforms, genres and games (e2e)', () => {
       );
       expect(rows.map((r) => r.external_id)).toEqual(['14', '3', '6']);
     });
+
+    it('maps Nintendo Switch 2 to the verified IGDB id 508', async () => {
+      const rows = await dataSource.query<{ slug: string }[]>(
+        `SELECT p.slug FROM platform_external_ids e
+         JOIN platforms p ON p.id = e.platform_id
+         WHERE e.provider = 'igdb' AND e.external_id = '508'`,
+      );
+      expect(rows).toEqual([{ slug: 'switch-2' }]);
+    });
   });
 
   describe('games table constraints', () => {

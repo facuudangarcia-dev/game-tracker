@@ -78,6 +78,10 @@ export class Game {
   @Column({ type: 'text', array: true, default: () => "'{}'" })
   publishers: string[];
 
+  /** Key of the stored cover in the asset storage (not a provider URL). */
+  @Column({ name: 'cover_asset_key', type: 'varchar', length: 200, nullable: true })
+  coverAssetKey: string | null;
+
   /**
    * Platforms the catalog reports for this game (the GamePlatform relation).
    * Empty for manual games, which accept any platform.

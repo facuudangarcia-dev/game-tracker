@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
+import { isUniqueViolation } from '../database/postgres-errors';
 import { User } from './user.entity';
-
-const PG_UNIQUE_VIOLATION = '23505';
 
 export class EmailAlreadyRegisteredError extends Error {
   constructor() {
@@ -45,11 +44,4 @@ export class UsersService {
   async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
     await this.users.update({ id }, { passwordHash });
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof QueryFailedError &&
-    (error.driverError as { code?: string } | undefined)?.code === PG_UNIQUE_VIOLATION
-  );
 }

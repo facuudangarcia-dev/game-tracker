@@ -10,6 +10,8 @@ import {
   MinLength,
   validateSync,
 } from 'class-validator';
+import { AssetStorageDriver } from '../assets/asset-storage';
+import { CatalogProvider } from '../catalog/catalog-provider';
 
 export enum NodeEnv {
   Development = 'development',
@@ -71,11 +73,10 @@ export class EnvironmentVariables {
   @Min(1)
   AUTH_RATE_LIMIT_PER_MINUTE: number = 10;
 
-  @IsString()
-  @IsNotEmpty()
-  CATALOG_PROVIDER: string = 'igdb';
+  @IsEnum(CatalogProvider)
+  CATALOG_PROVIDER: CatalogProvider = CatalogProvider.Igdb;
 
-  // Optional until the catalog integration is implemented.
+  // Optional: without them the app runs and search falls back to local results.
   @IsOptional()
   @IsString()
   IGDB_CLIENT_ID?: string;
@@ -83,6 +84,14 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   IGDB_CLIENT_SECRET?: string;
+
+  @IsEnum(AssetStorageDriver)
+  ASSET_STORAGE_DRIVER: AssetStorageDriver = AssetStorageDriver.Local;
+
+  /** Local driver only. Relative paths are resolved from backend/. */
+  @IsString()
+  @IsNotEmpty()
+  ASSET_STORAGE_LOCAL_DIR: string = 'storage';
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

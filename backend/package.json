@@ -27,7 +27,8 @@
     "migration:generate": "node scripts/migration-generate.js",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "migration:show": "npm run typeorm -- migration:show"
+    "migration:show": "npm run typeorm -- migration:show",
+    "catalog:verify-igdb": "ts-node scripts/verify-igdb-mappings.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.2",

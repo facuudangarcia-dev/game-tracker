@@ -13,6 +13,9 @@ coverage/
 .env.*
 !.env.example
 
+# Locally stored assets (game covers)
+storage/
+
 # Logs
 logs/
 *.log

@@ -4,9 +4,9 @@ Aplicación web personal para registrar el historial con cada videojuego: juego 
 estado, partidas (playthroughs), tiempo jugado, sesiones, dificultad, rating, platino, fechas y
 notas.
 
-> **Estado actual: Fase 3 — catálogo base.** Infraestructura, autenticación y modelo de catálogo
-> (plataformas y géneros precargados, juegos y sus plataformas). Todavía **no** hay integración con
-> IGDB, biblioteca ni partidas.
+> **Estado actual: Fase 4 — catálogo externo.** Infraestructura, autenticación, modelo de catálogo
+> e integración con IGDB (búsqueda, importación y portadas). Todavía **no** hay biblioteca
+> (UserGame) ni partidas.
 >
 > Las decisiones funcionales que completan la especificación están en
 > [`docs/decisions.md`](docs/decisions.md).
@@ -43,7 +43,8 @@ game-tracker/
 │   ├── src/
 │   │   ├── auth/             # sesiones, guard global, login/registro/logout
 │   │   ├── config/           # carga y validación de variables de entorno
-│   │   ├── catalog/          # proveedores de catálogo (hoy: identificador de IGDB)
+│   │   ├── assets/           # almacenamiento de assets (portadas) y GET /api/assets
+│   │   ├── catalog/          # GameCatalogProvider, IGDB, búsqueda e importación
 │   │   ├── database/         # opciones TypeORM, DataSource del CLI, migraciones
 │   │   ├── games/            # entidad Game (+ GamePlatform) y reglas de visibilidad
 │   │   ├── genres/           # géneros precargados (en español) y GET /api/genres
@@ -54,7 +55,8 @@ game-tracker/
 │   │   ├── app.setup.ts      # prefijo /api, CORS, helmet, ValidationPipe
 │   │   └── main.ts
 │   ├── test/                 # tests e2e (Jest + Supertest) contra la DB de test
-│   └── scripts/              # helpers para crear/generar migraciones
+│   ├── scripts/              # helpers de migraciones y verificación de IDs de IGDB
+│   └── storage/              # assets locales (ignorado por git)
 ├── frontend/                 # SPA React + Vite
 │   └── src/
 │       ├── app/              # providers, query client, rutas
@@ -93,19 +95,20 @@ npm run migration:run         # aplica las migraciones
 Hay **un único `.env` en la raíz**, compartido por Docker Compose, el backend y Vite. Nunca se
 versiona (`.gitignore`); `.env.example` documenta todas las variables.
 
-| Variable                                                   | Uso                                                                           |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `POSTGRES_HOST`, `POSTGRES_PORT`                           | Conexión del backend a PostgreSQL (puerto del host, por defecto 5434)         |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`                       | Credenciales (Docker crea el usuario con estos valores)                       |
-| `POSTGRES_DB`                                              | Base de desarrollo                                                            |
-| `POSTGRES_TEST_DB`                                         | Base para los tests e2e (Docker la crea automáticamente)                      |
-| `NODE_ENV`, `BACKEND_PORT`                                 | Entorno y puerto de la API                                                    |
-| `FRONTEND_ORIGIN`                                          | Origen permitido por CORS                                                     |
-| `AUTH_SECRET`, `AUTH_COOKIE_NAME`, `AUTH_SESSION_TTL_DAYS` | Sesiones. `AUTH_SECRET` ≥ 32 caracteres (cambiarlo cierra todas las sesiones) |
-| `AUTH_RATE_LIMIT_PER_MINUTE`                               | Intentos de login/registro por IP y minuto (por defecto 10)                   |
-| `CATALOG_PROVIDER`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Catálogo externo. **Solo backend**                                            |
-| `VITE_API_BASE_URL`                                        | URL base de la API vista por el navegador (por defecto `/api`)                |
-| `DEV_PROXY_TARGET`                                         | Destino del proxy de Vite en desarrollo (no llega al navegador)               |
+| Variable                                                   | Uso                                                                                                |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `POSTGRES_HOST`, `POSTGRES_PORT`                           | Conexión del backend a PostgreSQL (puerto del host, por defecto 5434)                              |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`                       | Credenciales (Docker crea el usuario con estos valores)                                            |
+| `POSTGRES_DB`                                              | Base de desarrollo                                                                                 |
+| `POSTGRES_TEST_DB`                                         | Base para los tests e2e (Docker la crea automáticamente)                                           |
+| `NODE_ENV`, `BACKEND_PORT`                                 | Entorno y puerto de la API                                                                         |
+| `FRONTEND_ORIGIN`                                          | Origen permitido por CORS                                                                          |
+| `AUTH_SECRET`, `AUTH_COOKIE_NAME`, `AUTH_SESSION_TTL_DAYS` | Sesiones. `AUTH_SECRET` ≥ 32 caracteres (cambiarlo cierra todas las sesiones)                      |
+| `AUTH_RATE_LIMIT_PER_MINUTE`                               | Intentos de login/registro por IP y minuto (por defecto 10)                                        |
+| `CATALOG_PROVIDER`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Catálogo externo. **Solo backend**. Sin credenciales, la búsqueda devuelve solo resultados locales |
+| `ASSET_STORAGE_DRIVER`, `ASSET_STORAGE_LOCAL_DIR`          | Almacenamiento de portadas (hoy `local`, en `backend/storage`)                                     |
+| `VITE_API_BASE_URL`                                        | URL base de la API vista por el navegador (por defecto `/api`)                                     |
+| `DEV_PROXY_TARGET`                                         | Destino del proxy de Vite en desarrollo (no llega al navegador)                                    |
 
 El backend valida todas sus variables al arrancar (class-validator) y no inicia si falta alguna.
 Solo las variables con prefijo `VITE_` llegan al bundle del navegador: nunca pongas secretos con
@@ -197,6 +200,40 @@ header del frontend muestra ese estado.
 
 Las tablas de referencia se cargan con migraciones (datos inline, inmutables); los tests e2e
 nunca las vacían.
+
+## Catálogo externo (IGDB)
+
+Arquitectura: `GameCatalogProvider` (interfaz) → `IgdbProvider` (primera implementación). El
+frontend nunca habla con IGDB; las credenciales solo viven en el `.env` del backend.
+
+| Endpoint                                 | Descripción                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| `GET /api/catalog/search?q=`             | Busca en IGDB + juegos importados + juegos manuales propios         |
+| `GET /api/catalog/:provider/images/:ref` | Proxy de miniaturas de resultados aún no importados (no se guardan) |
+| `GET /api/assets/:folder/:file`          | Portadas almacenadas (públicas, cache inmutable)                    |
+
+- **Búsqueda:** 2–100 caracteres, cache en memoria de 10 minutos, límite de 60 búsquedas por
+  minuto. Si IGDB falla o no está configurado responde `catalogAvailable: false` con los
+  resultados locales. Solo se buscan los tipos permitidos (juego, remake, remaster, port, versión
+  expandida, expansión independiente).
+- **Importación** (`CatalogImportService`, la usará la biblioteca al agregar un juego): guarda el
+  juego, sus plataformas conocidas (las desconocidas se ignoran), sus géneros (los desconocidos
+  se crean con el nombre de IGDB) y descarga la portada a la abstracción de almacenamiento. Un
+  juego ya importado se devuelve tal cual (sin sincronización). Si la portada falla, el juego se
+  importa igual.
+- **Almacenamiento de assets:** interfaz `AssetStorage` con driver `local`; las claves son el
+  hash del contenido (`covers/<sha256>.jpg`). Preparado para agregar un driver S3.
+
+### Verificar los IDs de IGDB
+
+Los IDs de plataformas, géneros y tipos de juego se verifican contra la API real:
+
+```bash
+npm --prefix backend run catalog:verify-igdb
+```
+
+Es de solo lectura: imprime un informe y sale con código 1 si algo no coincide. Las
+correcciones se aplican con una migración nueva, revisada. Nunca imprime credenciales.
 
 ## Tests
 
