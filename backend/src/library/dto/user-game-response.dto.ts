@@ -5,6 +5,7 @@ import { type PlatformResponseDto, toPlatformResponse } from '../../platforms/pl
 import type { PlayStatus, TimeMode } from '../library.constants';
 import type { UserGameSummary } from '../library-views.entity';
 import type { DifficultyResponseDto } from './difficulty.dto';
+import type { PlatinumResponseDto } from './platinum.dto';
 import type { SessionResponseDto } from './session.dto';
 import type { Playthrough } from '../playthrough.entity';
 import type { UserGame } from '../user-game.entity';
@@ -50,12 +51,14 @@ export interface UserGameListItemDto {
   completionDate: string | null;
   totalMinutes: number;
   rating: number | null;
+  platinumAchieved: boolean;
   createdAt: string;
 }
 
 export interface UserGameDetailsDto extends Omit<UserGameListItemDto, 'game'> {
   game: GameDetailsDto;
   notes: string | null;
+  platinum: PlatinumResponseDto;
   playthroughs: PlaythroughDto[];
   /** All sessions of the game, most recent first. */
   sessions: SessionResponseDto[];
@@ -114,6 +117,7 @@ export function toListItem(userGame: UserGame, summary: UserGameSummary): UserGa
     completionDate: summary.completionDate,
     totalMinutes: summary.totalMinutes,
     rating: userGame.rating,
+    platinumAchieved: userGame.platinumAchieved,
     createdAt: userGame.createdAt.toISOString(),
   };
 }

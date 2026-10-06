@@ -13,6 +13,8 @@ import { PlaythroughTime, UserGameSummary } from './library-views.entity';
 import { Playthrough } from './playthrough.entity';
 import { PlaythroughsController } from './playthroughs.controller';
 import { PlaythroughsService } from './playthroughs.service';
+import { PlatinumController } from './platinum.controller';
+import { PlatinumService } from './platinum.service';
 import { PlaytimeController } from './playtime.controller';
 import { PlaytimeService } from './playtime.service';
 import { UserGameAccess } from './user-game-access.service';
@@ -36,6 +38,7 @@ import { UserGame } from './user-game.entity';
     LibraryController,
     PlaythroughsController,
     PlaytimeController,
+    PlatinumController,
     DifficultiesController,
   ],
   providers: [
@@ -43,6 +46,7 @@ import { UserGame } from './user-game.entity';
     UserGameAccess,
     PlaythroughsService,
     PlaytimeService,
+    PlatinumService,
     DifficultiesService,
   ],
   exports: [LibraryService, UserGameAccess],

@@ -58,6 +58,7 @@ export interface UserGameListItem {
   completionDate: string | null;
   totalMinutes: number;
   rating: number | null;
+  platinumAchieved: boolean;
   createdAt: string;
 }
 
@@ -99,9 +100,17 @@ export interface GamingSession {
   countsTowardTime: boolean;
 }
 
+export interface Platinum {
+  achieved: boolean;
+  date: string | null;
+  timeMinutes: number | null;
+  difficulty: { id: string; name: string } | null;
+}
+
 export interface UserGameDetails extends Omit<UserGameListItem, 'game'> {
   game: GameDetails;
   notes: string | null;
+  platinum: Platinum;
   playthroughs: Playthrough[];
   sessions: GamingSession[];
   difficulties: Difficulty[];

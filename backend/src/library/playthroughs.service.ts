@@ -7,6 +7,7 @@ import { DifficultyKind } from './difficulty.entity';
 import type { CreatePlaythroughDto, UpdatePlaythroughDto } from './dto/playthrough.dto';
 import { LibraryErrorCode, PlayStatus, TimeMode } from './library.constants';
 import { assertValidPlaythroughDates, resolveCompletionDate } from './playthrough-rules';
+import { PlatinumService } from './platinum.service';
 import { Playthrough } from './playthrough.entity';
 import { UserGameAccess } from './user-game-access.service';
 
@@ -17,6 +18,7 @@ export class PlaythroughsService {
     @InjectRepository(Playthrough) private readonly playthroughs: Repository<Playthrough>,
     private readonly access: UserGameAccess,
     private readonly difficulties: DifficultiesService,
+    private readonly platinum: PlatinumService,
   ) {}
 
   /** "+ Nueva partida": numbered by the backend (#2, #3...), manual time by default. */
@@ -28,6 +30,9 @@ export class PlaythroughsService {
       completionDate: dto.completionDate ?? null,
     };
     assertValidPlaythroughDates(state);
+    if (state.startDate) {
+      await this.platinum.assertStartDateAllowed(userGameId, null, state.startDate);
+    }
     if (dto.difficultyId) {
       await this.difficulties.assertSelectable(
         userGameId,
@@ -72,6 +77,9 @@ export class PlaythroughsService {
       completionDate: resolveCompletionDate(playthrough, dto),
     };
     assertValidPlaythroughDates(state);
+    if (dto.startDate !== undefined) {
+      await this.platinum.assertStartDateAllowed(userGameId, playthrough.id, state.startDate);
+    }
     if (dto.difficultyId) {
       await this.difficulties.assertSelectable(
         userGameId,

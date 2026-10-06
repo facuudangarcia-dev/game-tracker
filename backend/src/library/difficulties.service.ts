@@ -12,6 +12,7 @@ import type {
 import { DEFAULT_DIFFICULTY_NAMES, LibraryErrorCode } from './library.constants';
 import { Playthrough } from './playthrough.entity';
 import { UserGameAccess } from './user-game-access.service';
+import { UserGame } from './user-game.entity';
 
 /**
  * Difficulty lists of a UserGame (decision #3, #4): private to it, created with
@@ -153,13 +154,20 @@ export class DifficultiesService {
     }
   }
 
-  /** Ids of difficulties currently referenced by this UserGame's playthroughs. */
+  /** Ids of difficulties in use by this UserGame's playthroughs or its platinum. */
   private async usedIds(userGameId: string): Promise<Set<string>> {
     const rows = await this.dataSource.getRepository(Playthrough).find({
       select: { difficultyId: true },
       where: { userGameId, difficultyId: Not(IsNull()) },
     });
-    return new Set(rows.map((r) => r.difficultyId!));
+    const userGame = await this.dataSource
+      .getRepository(UserGame)
+      .findOne({ select: { platinumDifficultyId: true }, where: { id: userGameId } });
+    const used = new Set(rows.map((r) => r.difficultyId!));
+    if (userGame?.platinumDifficultyId) {
+      used.add(userGame.platinumDifficultyId);
+    }
+    return used;
   }
 }
 

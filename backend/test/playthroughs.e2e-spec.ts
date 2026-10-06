@@ -238,7 +238,9 @@ describe('Playthroughs and difficulties (e2e)', () => {
     });
 
     it('clears the difficulty with null', async () => {
-      await patchPlaythrough(first().id, { difficultyId: game.difficulties[0].id }).expect(200);
+      await patchPlaythrough(first().id, {
+        difficultyId: playthroughDifficulties(game)[0].id,
+      }).expect(200);
       const body = (await patchPlaythrough(first().id, { difficultyId: null }).expect(200))
         .body as UserGameDetailsDto;
       expect(body.playthroughs[0].difficulty).toBeNull();
@@ -343,7 +345,9 @@ describe('Playthroughs and difficulties (e2e)', () => {
     });
 
     it('deletes the lists with the game, even if a difficulty is in use', async () => {
-      await patchPlaythrough(first().id, { difficultyId: game.difficulties[0].id }).expect(200);
+      await patchPlaythrough(first().id, {
+        difficultyId: playthroughDifficulties(game)[0].id,
+      }).expect(200);
 
       await as(app, alice).delete(url()).expect(204);
 

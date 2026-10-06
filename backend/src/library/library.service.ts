@@ -22,6 +22,7 @@ import { LibraryErrorCode, PlayStatus, TimeMode } from './library.constants';
 import { PlaythroughTime, UserGameSummary } from './library-views.entity';
 import { Playthrough } from './playthrough.entity';
 import { DifficultiesService } from './difficulties.service';
+import { toPlatinumDto } from './platinum.service';
 import { PlaytimeService } from './playtime.service';
 import { DifficultyKind } from './difficulty.entity';
 import { UserGameAccess, userGameNotFound } from './user-game-access.service';
@@ -102,6 +103,7 @@ export class LibraryService {
           manualTimeMinutes: 0,
         });
         await this.difficulties.createDefaults(manager, userGame.id, DifficultyKind.Playthrough);
+        await this.difficulties.createDefaults(manager, userGame.id, DifficultyKind.Platinum);
         return userGame.id;
       });
     } catch (error) {
@@ -131,7 +133,12 @@ export class LibraryService {
   async get(userId: string, userGameId: string): Promise<UserGameDetailsDto> {
     const userGame = await this.userGames.findOne({
       where: { id: userGameId, userId },
-      relations: { game: { genres: true }, platform: true, playthroughs: { difficulty: true } },
+      relations: {
+        game: { genres: true },
+        platform: true,
+        playthroughs: { difficulty: true },
+        platinumDifficulty: true,
+      },
       order: { playthroughs: { number: 'ASC' } },
     });
     if (!userGame) {
@@ -150,6 +157,7 @@ export class LibraryService {
       ...toListItem(userGame, summaries.get(userGame.id)!),
       game: toGameDetails(userGame.game),
       notes: userGame.notes,
+      platinum: toPlatinumDto(userGame),
       playthroughs: userGame.playthroughs.map((p) =>
         toPlaythroughDto(p, minutesById.get(p.id) ?? 0),
       ),

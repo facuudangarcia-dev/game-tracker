@@ -107,3 +107,8 @@ decisiones técnicas que afectan el comportamiento.
     (preseleccionada en la UI); si el usuario la rechaza, el tiempo manual queda guardado pero
     no cuenta mientras la partida esté en modo sesiones. Las sesiones se pueden editar y eliminar
     en cualquier modo; solo se pueden **agregar** en modo SESSIONS.
+38. **Platino:** con `platinumAchieved=false` se borran fecha, tiempo y dificultad (la base
+    garantiza que no existan). Con `true`, fecha y tiempo (≥ 1 minuto) son obligatorios y la
+    dificultad es opcional. La regla "fecha de platino ≥ inicio del juego" se protege en ambos
+    sentidos: tampoco se permite cambiar el inicio de una partida si eso dejaría el platino antes
+    del inicio del juego.

@@ -44,4 +44,7 @@ export enum LibraryErrorCode {
   SessionNotFound = 'SESSION_NOT_FOUND',
   SessionsRequireSessionMode = 'SESSIONS_REQUIRE_SESSION_MODE',
   ManualTimeRequiresManualMode = 'MANUAL_TIME_REQUIRES_MANUAL_MODE',
+  PlatinumDateRequired = 'PLATINUM_DATE_REQUIRED',
+  PlatinumTimeRequired = 'PLATINUM_TIME_REQUIRED',
+  PlatinumBeforeStart = 'PLATINUM_BEFORE_START',
 }
