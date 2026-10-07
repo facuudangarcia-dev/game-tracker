@@ -161,3 +161,11 @@ decisiones técnicas que afectan el comportamiento.
     modo que imprima códigos en consola.
 52. **CAPTCHA:** no se implementa ahora; los endpoints públicos quedan listos para sumar un guard
     (p. ej. Cloudflare Turnstile).
+
+## Home con contenido del catálogo (2026-10-07)
+
+53. **Destacados de la Home:** dos filas con datos reales de IGDB: lanzamientos recientes (los
+    más esperados, por "hypes", salidos en los últimos 180 días) y próximos lanzamientos (por
+    "hypes"). Solo tipos permitidos (#27), con portada y sin contenido adulto. Caché de una hora;
+    no se persiste nada. El fondo del hero es el artwork (o una captura) de uno de esos juegos,
+    elegido al azar en cada visita.

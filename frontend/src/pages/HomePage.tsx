@@ -1,16 +1,12 @@
-import SearchIcon from '@mui/icons-material/Search';
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Grid from '@mui/material/Grid';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import { Link as RouterLink } from 'react-router';
+import { useMemo, useState } from 'react';
 import { GLOBAL_SEARCH_INPUT_ID } from '../features/catalog/GlobalSearch';
-import { messages } from '../i18n/messages';
-
-const t = messages.home;
+import { useCatalogHighlights } from '../features/catalog/queries';
+import { FeatureBento } from '../features/home/FeatureBento';
+import { RecentReleasesRail, UpcomingReleasesRail } from '../features/home/GameRail';
+import { HomeHero } from '../features/home/HomeHero';
+import { HomeSteps } from '../features/home/HomeSteps';
+import { pickFeatured } from '../features/home/homeFormat';
 
 /** Focuses the global catalog search in the header. */
 function focusGlobalSearch() {
@@ -18,95 +14,36 @@ function focusGlobalSearch() {
 }
 
 /**
- * Presentation and entry point of the app. Deliberately not a dashboard:
- * no statistics, recent games or rankings (V2/V3).
+ * Presentation and entry point of the app: a showcase of the catalog (recent and
+ * upcoming games) and of what Game Tracker records. Deliberately not a
+ * dashboard: no personal statistics, recent activity or rankings (V2/V3).
  */
 export function HomePage() {
-  return (
-    <Stack spacing={4}>
-      <Paper
-        variant="outlined"
-        sx={(theme) => ({
-          p: { xs: 3, sm: 5, md: 7 },
-          textAlign: { xs: 'left', sm: 'center' },
-          background: `radial-gradient(ellipse at top, ${theme.palette.primary.dark}33, transparent 60%), ${theme.palette.background.paper}`,
-        })}
-      >
-        <Stack
-          spacing={2.5}
-          sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, maxWidth: 720, mx: 'auto' }}
-        >
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'primary.main' }}>
-            <SportsEsportsIcon aria-hidden />
-            <Typography variant="overline" sx={{ fontWeight: 700, letterSpacing: 2 }}>
-              {t.eyebrow}
-            </Typography>
-          </Stack>
-          <Typography
-            variant="h3"
-            component="h1"
-            sx={{ fontWeight: 800, fontSize: { xs: '2rem', sm: '2.75rem', md: '3.25rem' } }}
-          >
-            {t.title}
-          </Typography>
-          <Typography variant="h6" component="p" color="text.secondary" sx={{ fontWeight: 400 }}>
-            {t.body}
-          </Typography>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1.5}
-            sx={{ pt: 1, width: { xs: '100%', sm: 'auto' } }}
-          >
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<SearchIcon />}
-              onClick={focusGlobalSearch}
-            >
-              {t.explore}
-            </Button>
-            <Button variant="outlined" size="large" component={RouterLink} to="/games">
-              {t.library}
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
+  const highlights = useCatalogHighlights();
+  // Fixed per visit: the hero game varies between visits, not between renders.
+  const [seed] = useState(() => Math.random());
 
-      <Grid container spacing={2}>
-        {t.steps.map((step, index) => (
-          <Grid key={step.title} size={{ xs: 12, md: 4 }}>
-            <Paper variant="outlined" sx={{ p: 3, height: '100%' }}>
-              <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
-                <Box
-                  aria-hidden
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    flexShrink: 0,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                  }}
-                >
-                  {index + 1}
-                </Box>
-                <Box>
-                  <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 700 }}>
-                    {step.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {step.body}
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
+  const recent = highlights.data?.recent ?? [];
+  const upcoming = highlights.data?.upcoming ?? [];
+  const featured = useMemo(
+    () =>
+      highlights.data
+        ? pickFeatured([...highlights.data.recent, ...highlights.data.upcoming], seed)
+        : null,
+    [highlights.data, seed],
+  );
+  const loading = highlights.isPending;
+  // Without the catalog the rails are hidden; the hero keeps its abstract backdrop.
+  const showRecent = loading || recent.length > 0;
+  const showUpcoming = loading || upcoming.length > 0;
+
+  return (
+    <Stack spacing={{ xs: 6, md: 9 }}>
+      <HomeHero featured={featured} onExplore={focusGlobalSearch} />
+      {showRecent ? <RecentReleasesRail games={recent} loading={loading} /> : null}
+      <FeatureBento />
+      {showUpcoming ? <UpcomingReleasesRail games={upcoming} loading={loading} /> : null}
+      <HomeSteps />
     </Stack>
   );
 }

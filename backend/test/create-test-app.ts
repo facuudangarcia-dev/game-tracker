@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { CatalogDetailsService } from '../src/catalog/catalog-details.service';
+import { CatalogHighlightsService } from '../src/catalog/catalog-highlights.service';
 import { CatalogSearchService } from '../src/catalog/catalog-search.service';
 import { GAME_CATALOG_PROVIDER } from '../src/catalog/game-catalog-provider';
 import { EmailService } from '../src/email/email.service';
@@ -71,6 +72,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     emails.reset();
     app.get(CatalogSearchService).clearCache();
     app.get(CatalogDetailsService).clearCache();
+    app.get(CatalogHighlightsService).clearCache();
   };
 
   return { app, dataSource, catalog, emails, resetDatabase };

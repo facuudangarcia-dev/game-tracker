@@ -2,6 +2,8 @@ import { CatalogProvider } from '../src/catalog/catalog-provider';
 import {
   type CatalogGameDetails,
   type CatalogGameSummary,
+  type CatalogHighlight,
+  type CatalogHighlightKind,
   type CatalogImage,
   type CatalogImageVariant,
   type CatalogTaxonomyEntry,
@@ -17,7 +19,8 @@ export class FakeCatalogProvider implements GameCatalogProvider {
   readonly games = new Map<string, CatalogGameDetails>();
   failing = false;
   failingImages = false;
-  calls = { search: 0, getGame: 0, fetchImage: 0 };
+  calls = { search: 0, getGame: 0, fetchImage: 0, highlights: 0 };
+  highlights: Record<CatalogHighlightKind, CatalogHighlight[]> = { recent: [], upcoming: [] };
   imageVariants: CatalogImageVariant[] = [];
 
   add(game: Partial<CatalogGameDetails> & { externalId: string; name: string }): void {
@@ -38,7 +41,8 @@ export class FakeCatalogProvider implements GameCatalogProvider {
     this.games.clear();
     this.failing = false;
     this.failingImages = false;
-    this.calls = { search: 0, getGame: 0, fetchImage: 0 };
+    this.calls = { search: 0, getGame: 0, fetchImage: 0, highlights: 0 };
+    this.highlights = { recent: [], upcoming: [] };
     this.imageVariants = [];
   }
 
@@ -58,6 +62,12 @@ export class FakeCatalogProvider implements GameCatalogProvider {
           platformExternalIds,
         })),
     );
+  }
+
+  listHighlights(kind: CatalogHighlightKind, limit: number): Promise<CatalogHighlight[]> {
+    this.calls.highlights++;
+    this.throwIfFailing();
+    return Promise.resolve(this.highlights[kind].slice(0, limit));
   }
 
   getGame(externalId: string): Promise<CatalogGameDetails | null> {

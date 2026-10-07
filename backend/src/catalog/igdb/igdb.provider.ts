@@ -2,6 +2,8 @@ import { CatalogProvider } from '../catalog-provider';
 import {
   type CatalogGameDetails,
   type CatalogGameSummary,
+  type CatalogHighlight,
+  type CatalogHighlightKind,
   type CatalogImage,
   type CatalogImageVariant,
   type CatalogTaxonomyEntry,
@@ -29,7 +31,13 @@ const ALLOWED_GAME_TYPE_IDS = Object.values(IGDB_ALLOWED_GAME_TYPES);
 const IMAGE_SIZES: Record<CatalogImageVariant, string> = {
   thumbnail: 't_cover_small_2x',
   cover: 't_cover_big_2x',
+  artwork: 't_1080p',
 };
+/** IGDB theme "Erotic": never highlighted. */
+const IGDB_EROTIC_THEME_ID = 42;
+/** "Recent" = released within this window (docs/decisions.md #53). */
+const RECENT_WINDOW_DAYS = 180;
+const DAY_SECONDS = 24 * 60 * 60;
 const IMAGE_REF_PATTERN = /^[a-z0-9]{1,64}$/i;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TIMEOUT_MS = 10_000;
@@ -42,6 +50,8 @@ interface IgdbGame {
   summary?: string;
   first_release_date?: number;
   cover?: { image_id?: string };
+  artworks?: { image_id?: string }[];
+  screenshots?: { image_id?: string }[];
   platforms?: number[];
   game_type?: number;
   genres?: { id: number; name: string }[];
@@ -100,6 +110,31 @@ export class IgdbProvider implements GameCatalogProvider {
       developers: companyNames('developer'),
       publishers: companyNames('publisher'),
     };
+  }
+
+  /**
+   * Most anticipated games (IGDB "hypes") released in the last 180 days, or not
+   * released yet. Only allowed types with a cover; adult content excluded.
+   */
+  async listHighlights(
+    kind: CatalogHighlightKind,
+    limit: number,
+    now = new Date(),
+  ): Promise<CatalogHighlight[]> {
+    const nowSeconds = Math.floor(now.getTime() / 1000);
+    const window =
+      kind === 'recent'
+        ? `first_release_date >= ${nowSeconds - RECENT_WINDOW_DAYS * DAY_SECONDS} & first_release_date <= ${nowSeconds}`
+        : `first_release_date > ${nowSeconds}`;
+    const games = await this.client.query<IgdbGame>(
+      'games',
+      'fields name,first_release_date,cover.image_id,artworks.image_id,screenshots.image_id,' +
+        'platforms,game_type; ' +
+        `where game_type = (${ALLOWED_GAME_TYPE_IDS.join(',')}) & cover != null & ` +
+        `themes != (${IGDB_EROTIC_THEME_ID}) & ${window}; ` +
+        `sort hypes desc; limit ${limit};`,
+    );
+    return games.filter((game) => isAllowedGameType(game.game_type)).map(toHighlight);
   }
 
   isValidImageRef(ref: string): boolean {
@@ -174,6 +209,12 @@ function toSummary(game: IgdbGame): CatalogGameSummary {
     coverRef: game.cover?.image_id ?? null,
     platformExternalIds: (game.platforms ?? []).map(String),
   };
+}
+
+function toHighlight(game: IgdbGame): CatalogHighlight {
+  const artwork =
+    game.artworks?.find((a) => a.image_id) ?? game.screenshots?.find((s) => s.image_id);
+  return { ...toSummary(game), artworkRef: artwork?.image_id ?? null };
 }
 
 function toTaxonomyEntry(entry: IgdbNamedEntry): CatalogTaxonomyEntry {

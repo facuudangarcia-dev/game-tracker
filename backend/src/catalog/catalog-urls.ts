@@ -15,3 +15,8 @@ export function catalogThumbnailUrl(provider: CatalogProvider, ref: string): str
 export function catalogCoverUrl(provider: CatalogProvider, ref: string): string {
   return `${catalogThumbnailUrl(provider, ref)}?size=cover`;
 }
+
+/** Wide high-resolution artwork for the Home hero (not stored either). */
+export function catalogArtworkUrl(provider: CatalogProvider, ref: string): string {
+  return `${catalogThumbnailUrl(provider, ref)}?size=artwork`;
+}

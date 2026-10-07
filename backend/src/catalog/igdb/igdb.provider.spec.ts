@@ -61,6 +61,61 @@ describe('IgdbProvider', () => {
     });
   });
 
+  describe('listHighlights', () => {
+    const now = new Date('2026-10-06T00:00:00Z');
+    const nowSeconds = now.getTime() / 1000;
+
+    it('queries recent anticipated games without adult content and picks an artwork', async () => {
+      const { provider, query } = setup([
+        [
+          {
+            id: 1,
+            name: 'With Artwork',
+            first_release_date: nowSeconds - 86400,
+            cover: { image_id: 'co1' },
+            artworks: [{ image_id: 'ar1' }],
+            screenshots: [{ image_id: 'sc1' }],
+            platforms: [167],
+            game_type: 0,
+          },
+          {
+            id: 2,
+            name: 'Only Screenshot',
+            cover: { image_id: 'co2' },
+            screenshots: [{ image_id: 'sc2' }],
+            game_type: 8,
+          },
+          { id: 3, name: 'Bare', cover: { image_id: 'co3' }, game_type: 0 },
+          { id: 4, name: 'A DLC', cover: { image_id: 'co4' }, game_type: 1 },
+        ],
+      ]);
+
+      const games = await provider.listHighlights('recent', 12, now);
+
+      const body = query.mock.calls[0][1];
+      expect(body).toContain('themes != (42)');
+      expect(body).toContain('cover != null');
+      expect(body).toContain(
+        `first_release_date >= ${nowSeconds - 180 * 86400} & first_release_date <= ${nowSeconds}`,
+      );
+      expect(body).toContain('sort hypes desc; limit 12;');
+      expect(games.map((g) => [g.name, g.artworkRef])).toEqual([
+        ['With Artwork', 'ar1'],
+        ['Only Screenshot', 'sc2'],
+        ['Bare', null],
+      ]);
+      expect(games[0]).toMatchObject({ externalId: '1', releaseDate: '2026-10-05' });
+    });
+
+    it('queries only unreleased games for upcoming', async () => {
+      const { provider, query } = setup([[]]);
+
+      await provider.listHighlights('upcoming', 12, now);
+
+      expect(query.mock.calls[0][1]).toContain(`first_release_date > ${nowSeconds};`);
+    });
+  });
+
   describe('getGame', () => {
     it('maps details, splitting developers and publishers', async () => {
       const { provider, query } = setup([

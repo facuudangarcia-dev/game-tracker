@@ -7,6 +7,7 @@ import { Game } from '../games/game.entity';
 import { GenresModule } from '../genres/genres.module';
 import { PlatformsModule } from '../platforms/platforms.module';
 import { CatalogDetailsService } from './catalog-details.service';
+import { CatalogHighlightsService } from './catalog-highlights.service';
 import { CatalogImportService } from './catalog-import.service';
 import { CatalogProvider } from './catalog-provider';
 import { CatalogSearchService } from './catalog-search.service';
@@ -44,6 +45,7 @@ function createCatalogProvider(
     CatalogSearchService,
     CatalogImportService,
     CatalogDetailsService,
+    CatalogHighlightsService,
   ],
   exports: [GAME_CATALOG_PROVIDER, CatalogImportService],
 })

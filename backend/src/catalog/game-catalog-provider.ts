@@ -33,7 +33,16 @@ export interface CatalogTaxonomyEntry {
   slug: string | null;
 }
 
-export type CatalogImageVariant = 'thumbnail' | 'cover';
+/** `artwork` is a wide, high-resolution image (key art or screenshot) for hero backgrounds. */
+export type CatalogImageVariant = 'thumbnail' | 'cover' | 'artwork';
+
+/** Lists of notable games shown on the Home (docs/decisions.md #53). */
+export type CatalogHighlightKind = 'recent' | 'upcoming';
+
+export interface CatalogHighlight extends CatalogGameSummary {
+  /** Wide image (artwork, else screenshot), if the provider has one. */
+  artworkRef: string | null;
+}
 
 export interface CatalogImage {
   data: Buffer;
@@ -49,6 +58,8 @@ export interface GameCatalogProvider {
   searchGames(query: string, limit: number): Promise<CatalogGameSummary[]>;
   /** Null when the game doesn't exist or its type is not allowed. */
   getGame(externalId: string): Promise<CatalogGameDetails | null>;
+  /** Notable games, most anticipated first; adult content excluded. */
+  listHighlights(kind: CatalogHighlightKind, limit: number): Promise<CatalogHighlight[]>;
   isValidImageRef(ref: string): boolean;
   fetchImage(ref: string, variant: CatalogImageVariant): Promise<CatalogImage>;
   listPlatforms(): Promise<CatalogTaxonomyEntry[]>;

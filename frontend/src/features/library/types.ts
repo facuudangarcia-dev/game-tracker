@@ -153,6 +153,24 @@ export type AddUserGameInput = {
   rating?: number | null;
 } & GameSource;
 
+/** A notable catalog game shown on the Home (recent or upcoming). */
+export interface CatalogHighlight {
+  provider: string;
+  externalId: string;
+  name: string;
+  releaseDate: string | null;
+  coverUrl: string | null;
+  /** Wide high-resolution image for the hero, if any. */
+  artworkUrl: string | null;
+  platforms: Platform[];
+}
+
+export interface CatalogHighlights {
+  recent: CatalogHighlight[];
+  upcoming: CatalogHighlight[];
+  catalogAvailable: boolean;
+}
+
 /** Public view of a catalog game ("this game exists"). */
 export interface CatalogGame {
   /** Local id when already imported. */

@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../../lib/api/client';
 import { SEARCH_MIN_LENGTH, useCatalogSearch } from '../library/queries';
-import type { CatalogGame, CatalogSearchResult } from '../library/types';
+import type { CatalogGame, CatalogHighlights, CatalogSearchResult } from '../library/types';
 
 export const catalogKeys = {
+  highlights: ['catalog', 'highlights'] as const,
   game: (provider: string, externalId: string) =>
     ['catalog', 'game', provider, externalId] as const,
 };
@@ -23,6 +24,15 @@ export function useCatalogGame(provider: string, externalId: string) {
   return useQuery({
     queryKey: catalogKeys.game(provider, externalId),
     queryFn: () => fetchCatalogGame(provider, externalId),
+  });
+}
+
+/** Recent and upcoming notable games for the Home (cached by the backend for an hour). */
+export function useCatalogHighlights() {
+  return useQuery({
+    queryKey: catalogKeys.highlights,
+    queryFn: () => apiFetch<CatalogHighlights>('/catalog/highlights'),
+    staleTime: 30 * 60 * 1000,
   });
 }
 

@@ -19,6 +19,10 @@ export function mockApi(customHandlers: Record<string, Handler>) {
     'GET /library': () => ({ status: 200, body: [] }),
     'GET /platforms': () => ({ status: 200, body: [] }),
     'GET /genres': () => ({ status: 200, body: [] }),
+    'GET /catalog/highlights': () => ({
+      status: 200,
+      body: { recent: [], upcoming: [], catalogAvailable: true },
+    }),
     ...customHandlers,
   };
   const calls: MockRequest[] = [];

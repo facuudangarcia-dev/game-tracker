@@ -19,11 +19,15 @@ import type { User } from '../users/user.entity';
 import { CatalogDetailsService, type CatalogGameDto } from './catalog-details.service';
 import { EXTERNAL_ID_MAX_LENGTH } from './catalog-provider';
 import { CatalogSearchService, type CatalogSearchResponseDto } from './catalog-search.service';
+import { CatalogHighlightsService, type CatalogHighlightsDto } from './catalog-highlights.service';
 import {
+  type CatalogImageVariant,
   CatalogUnavailableError,
   GAME_CATALOG_PROVIDER,
   type GameCatalogProvider,
 } from './game-catalog-provider';
+
+const IMAGE_VARIANTS: readonly CatalogImageVariant[] = ['thumbnail', 'cover', 'artwork'];
 
 export const SEARCH_QUERY_MIN_LENGTH = 2;
 export const SEARCH_QUERY_MAX_LENGTH = 100;
@@ -42,6 +46,7 @@ export class CatalogController {
     private readonly search: CatalogSearchService,
     @Inject(GAME_CATALOG_PROVIDER) private readonly catalog: GameCatalogProvider,
     private readonly details: CatalogDetailsService,
+    private readonly highlights: CatalogHighlightsService,
   ) {}
 
   /** Search-as-you-type friendly limit, still protecting the provider's quota. */
@@ -53,6 +58,12 @@ export class CatalogController {
     @CurrentUser() user: User,
   ): Promise<CatalogSearchResponseDto> {
     return this.search.search(q, user.id);
+  }
+
+  /** Recent and upcoming notable games for the Home. Cached; never imports anything. */
+  @Get('highlights')
+  getHighlights(): Promise<CatalogHighlightsDto> {
+    return this.highlights.get();
   }
 
   /** Public view of a catalog game ("this game exists"); never a manual game. */
@@ -70,7 +81,8 @@ export class CatalogController {
 
   /**
    * Image proxy for not-yet-imported games (decision #30): thumbnail by default,
-   * `?size=cover` for the catalog detail page. Never stored.
+   * `?size=cover` for the catalog detail page and `?size=artwork` for the Home
+   * hero. Never stored.
    */
   @Get(':provider/images/:ref')
   async thumbnail(
@@ -79,14 +91,17 @@ export class CatalogController {
     @Query('size') size: string | undefined,
     @Res() response: Response,
   ): Promise<void> {
-    if (size !== undefined && size !== 'thumbnail' && size !== 'cover') {
-      throw new BadRequestException('size must be thumbnail or cover');
+    if (size !== undefined && !IMAGE_VARIANTS.includes(size as CatalogImageVariant)) {
+      throw new BadRequestException('size must be thumbnail, cover or artwork');
     }
     if (provider !== String(this.catalog.id) || !this.catalog.isValidImageRef(ref)) {
       throw new NotFoundException();
     }
     try {
-      const image = await this.catalog.fetchImage(ref, size === 'cover' ? 'cover' : 'thumbnail');
+      const image = await this.catalog.fetchImage(
+        ref,
+        (size as CatalogImageVariant | undefined) ?? 'thumbnail',
+      );
       response
         .status(200)
         .type(image.contentType)

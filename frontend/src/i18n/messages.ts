@@ -17,9 +17,62 @@ export const messages = {
   home: {
     eyebrow: 'Game Tracker',
     title: 'Tu historial personal de videojuegos',
+    /** Ending of the title highlighted with a gradient. */
+    titleAccent: 'de videojuegos',
     body: 'Registrá los juegos que jugaste, cuánto tiempo les dedicaste, en qué dificultad, tus partidas, tu valoración y tus platinos.',
     explore: 'Explorar juegos',
     library: 'Mis juegos',
+    featured: 'En portada',
+    viewGame: 'Ver juego',
+    recent: {
+      eyebrow: 'Recién salidos',
+      title: 'Lanzamientos recientes',
+      subtitle: 'Los más esperados de los últimos meses.',
+    },
+    upcoming: {
+      eyebrow: 'En el horizonte',
+      title: 'Próximamente',
+      subtitle: 'Los lanzamientos más esperados que se vienen.',
+    },
+    railPrevious: 'Ver anteriores',
+    railNext: 'Ver siguientes',
+    rank: (position: number) => `Puesto ${position}`,
+    releaseDate: (date: string) => `Sale el ${date}`,
+    features: {
+      eyebrow: 'Qué podés registrar',
+      title: 'Todo tu historial, en un solo lugar',
+      playthroughs: {
+        title: 'Partidas',
+        body: 'Cada vez que lo jugás es una partida nueva, con su estado, sus fechas y su dificultad.',
+        example: (n: number) => `Partida #${n}`,
+      },
+      time: {
+        title: 'Tiempo jugado',
+        body: 'Cargalo a mano o sumá sesiones: el total se calcula solo.',
+        example: '126 h 40 min',
+      },
+      difficulty: {
+        title: 'Dificultad',
+        body: 'Tu propia lista por juego, también para el platino.',
+        examples: ['Fácil', 'Normal', 'Difícil'],
+      },
+      platinum: {
+        title: 'Platino',
+        body: 'Cuándo lo conseguiste y cuánto te llevó.',
+      },
+      rating: {
+        title: 'Valoración',
+        body: 'Puntuá cada juego de 10 a 100.',
+        example: 87,
+      },
+      notes: {
+        title: 'Notas',
+        body: 'Tus impresiones, en texto libre y privadas.',
+        example: '“El último jefe me llevó tres noches. Valió cada intento.”',
+      },
+    },
+    stepsEyebrow: 'Cómo funciona',
+    stepsTitle: 'Empezá en tres pasos',
     steps: [
       { title: 'Explorá', body: 'Buscá cualquier juego en el catálogo y conocé sus datos.' },
       { title: 'Agregalo', body: 'Elegí la plataforma y cómo empezás a registrarlo.' },

@@ -322,7 +322,7 @@ Mis juegos, Mi perfil); en mobile la navegación pasa a un menú lateral y el bu
 
 | Ruta                             | Pantalla                                                         |
 | -------------------------------- | ---------------------------------------------------------------- |
-| `/`                              | Inicio: presentación y puntos de entrada (no es un dashboard)    |
+| `/`                              | Inicio: hero con artwork, juegos recientes/próximos y funciones  |
 | `/catalog/:provider/:externalId` | Juego del catálogo ("este juego existe") con **+ Agregar juego** |
 | `/games`                         | Mis juegos: búsqueda, filtros y orden de la biblioteca personal  |
 | `/games/:id`                     | Mi juego: partidas, sesiones, platino, dificultades y notas      |
@@ -335,6 +335,12 @@ Flujo para agregar un juego: buscador global → página del catálogo → **Agr
 (plataforma entre las que informa el catálogo, estado inicial, fechas, dificultad, valoración) →
 se crea el UserGame con la partida #1 configurada → se abre "Mi juego". Los juegos manuales se
 agregan desde Mis juegos con el mismo modal y nunca aparecen en el catálogo.
+
+La Home usa `GET /api/catalog/highlights`: los juegos más esperados (por "hypes" de IGDB)
+lanzados en los últimos 180 días y los próximos lanzamientos, sin contenido adulto. Se cachean
+una hora, no se importa ni se guarda nada, y las imágenes pasan por el proxy
+(`?size=artwork` para el fondo del hero, que se elige al azar en cada visita). Si IGDB no
+responde, la Home oculta esas secciones.
 
 La página del catálogo usa `GET /api/catalog/games/:provider/:externalId`: si el juego ya fue
 importado responde desde la base (funciona aunque IGDB esté caído); si no, consulta IGDB **sin
