@@ -1,3 +1,4 @@
+import { dateFormat } from '../i18n/locale';
 import { messages } from '../i18n/messages';
 
 const t = messages.time;
@@ -12,19 +13,19 @@ export function formatMinutes(totalMinutes: number): string {
   return minutes === 0 ? t.hours(hours) : t.hoursAndMinutes(hours, minutes);
 }
 
-const dateFormatter = new Intl.DateTimeFormat('es', {
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
   timeZone: 'UTC',
-});
+};
 
-/** "YYYY-MM-DD" (calendar date, no time zone) → "05/10/2026". */
+/** "YYYY-MM-DD" (calendar date, no time zone) → "05/10/2026" (in the current locale). */
 export function formatDate(isoDate: string | null): string {
   if (!isoDate) {
     return messages.common.notSet;
   }
-  return dateFormatter.format(new Date(`${isoDate}T00:00:00Z`));
+  return dateFormat(DATE_OPTIONS).format(new Date(`${isoDate}T00:00:00Z`));
 }
 
 export function formatYear(isoDate: string | null): string | null {

@@ -16,6 +16,7 @@ import { AddToLibraryDialog } from '../features/library/AddToLibraryDialog';
 import { GameCover } from '../features/library/GameCover';
 import type { CatalogGame } from '../features/library/types';
 import { messages } from '../i18n/messages';
+import { genreName } from '../i18n/genres';
 import { ApiError } from '../lib/api/client';
 import { getErrorCode } from '../lib/api/errors';
 import { formatDate, formatYear } from '../lib/format';
@@ -188,7 +189,7 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
           items={[
             [t.platforms, chips(game.platforms.map((p) => p.name))],
             [t.releaseDate, formatDate(game.releaseDate)],
-            [t.genres, chips(game.genres.map((g) => g.name))],
+            [t.genres, chips(game.genres.map(genreName))],
             [t.developers, game.developers.join(', ') || t.none],
             [t.publishers, game.publishers.join(', ') || t.none],
           ]}

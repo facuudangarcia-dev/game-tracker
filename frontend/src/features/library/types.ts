@@ -182,7 +182,7 @@ export interface CatalogGame {
   releaseDate: string | null;
   coverUrl: string | null;
   platforms: Platform[];
-  genres: { id: string | null; name: string }[];
+  genres: { id: string | null; slug: string | null; name: string }[];
   developers: string[];
   publishers: string[];
   /** The current user's UserGames of this game. */

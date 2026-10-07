@@ -1,17 +1,18 @@
+import { dateFormat } from '../../i18n/locale';
 import type { CatalogHighlight } from '../library/types';
 
-const dayFormatter = new Intl.DateTimeFormat('es-AR', { day: '2-digit', timeZone: 'UTC' });
-const monthFormatter = new Intl.DateTimeFormat('es-AR', { month: 'short', timeZone: 'UTC' });
-const longFormatter = new Intl.DateTimeFormat('es-AR', { dateStyle: 'long', timeZone: 'UTC' });
+const DAY: Intl.DateTimeFormatOptions = { day: '2-digit', timeZone: 'UTC' };
+const MONTH: Intl.DateTimeFormatOptions = { month: 'short', timeZone: 'UTC' };
+const LONG: Intl.DateTimeFormatOptions = { dateStyle: 'long', timeZone: 'UTC' };
 
 /** Parts of a calendar date ("YYYY-MM-DD") for the "calendar page" badge. */
 export function calendarParts(isoDate: string) {
   const date = new Date(`${isoDate}T00:00:00Z`);
   return {
-    day: dayFormatter.format(date),
-    month: monthFormatter.format(date).replace('.', ''),
+    day: dateFormat(DAY).format(date),
+    month: dateFormat(MONTH).format(date).replace('.', ''),
     year: isoDate.slice(0, 4),
-    long: longFormatter.format(date),
+    long: dateFormat(LONG).format(date),
   };
 }
 

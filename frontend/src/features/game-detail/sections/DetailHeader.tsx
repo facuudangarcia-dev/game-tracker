@@ -11,6 +11,7 @@ import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { messages } from '../../../i18n/messages';
+import { genreName } from '../../../i18n/genres';
 import { formatMinutes, formatYear } from '../../../lib/format';
 import { GameCover } from '../../library/GameCover';
 import { RatingBadge } from '../../library/RatingBadge';
@@ -76,7 +77,7 @@ export function DetailHeader({
         </Stack>
         {game.genres.length > 0 ? (
           <Typography variant="body2" color="text.secondary">
-            {game.genres.map((g) => g.name).join(' · ')}
+            {game.genres.map(genreName).join(' · ')}
           </Typography>
         ) : null}
         {game.summary ? (

@@ -10,6 +10,7 @@ import Tooltip from '@mui/material/Tooltip';
 import SearchIcon from '@mui/icons-material/Search';
 import { useEffect, useState } from 'react';
 import { messages } from '../../i18n/messages';
+import { genreName } from '../../i18n/genres';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
 import {
   defaultOrder,
@@ -131,7 +132,7 @@ export function LibraryToolbar({ filters, onChange }: LibraryToolbarProps) {
             t.genre,
             filters.genreId,
             (v) => set({ genreId: v || undefined }),
-            (genres.data ?? []).map((g) => [g.id, g.name]),
+            (genres.data ?? []).map((g) => [g.id, genreName(g)]),
             t.all,
           )}
         </Grid>

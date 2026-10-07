@@ -21,7 +21,7 @@ export class GenresService {
   async describe(
     provider: CatalogProvider,
     refs: CatalogGenreRef[],
-  ): Promise<{ id: string | null; name: string }[]> {
+  ): Promise<{ id: string | null; slug: string | null; name: string }[]> {
     if (refs.length === 0) {
       return [];
     }
@@ -30,10 +30,12 @@ export class GenresService {
       relations: { genre: true },
     });
     const known = new Map(rows.map((row) => [row.externalId, row.genre]));
-    const described = new Map<string, { id: string | null; name: string }>();
+    const described = new Map<string, { id: string | null; slug: string | null; name: string }>();
     for (const ref of refs) {
       const genre = known.get(ref.externalId);
-      const item = genre ? { id: genre.id, name: genre.name } : { id: null, name: ref.name };
+      const item = genre
+        ? { id: genre.id, slug: genre.slug, name: genre.name }
+        : { id: null, slug: null, name: ref.name };
       if (!described.has(item.name)) {
         described.set(item.name, item);
       }

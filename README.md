@@ -346,6 +346,22 @@ La página del catálogo usa `GET /api/catalog/games/:provider/:externalId`: si 
 importado responde desde la base (funciona aunque IGDB esté caído); si no, consulta IGDB **sin
 guardar nada**. Los juegos manuales no tienen ID externo, así que nunca son accesibles por esa ruta.
 
+## Idiomas
+
+La interfaz está en **español (Argentina)** e **inglés**. El selector del header muestra la
+bandera del idioma actual; la elección se guarda en el navegador (`localStorage`, clave
+`gt.locale`) y también funciona en login y registro. Por defecto: español.
+
+- Textos en `frontend/src/i18n/es.ts` (referencia) y `en.ts`. El tipo `Messages` obliga a que
+  ambos tengan la misma forma, y un test lo verifica en ejecución.
+- Los componentes siguen leyendo `messages`: al cambiar el idioma ese objeto se actualiza en el
+  lugar y la app se vuelve a montar (la URL y los datos en caché se conservan).
+- Fechas con `Intl` en el idioma actual. Los géneros precargados se traducen por slug
+  (`i18n/genres.ts`); los resúmenes de IGDB llegan en inglés y los nombres de plataformas y las
+  dificultades (datos del usuario) no se traducen.
+- Para agregar un idioma: un nuevo diccionario con el tipo `Messages`, sumarlo a `LOCALES` y a
+  `dictionaries`, y su bandera en `LanguageSelector`.
+
 ## Tests
 
 ```bash

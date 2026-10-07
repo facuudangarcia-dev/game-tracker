@@ -1,3 +1,5 @@
+import { dateFormat } from '../i18n/locale';
+
 /** Date helpers in the user's local time (inputs) and ISO (API). */
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -17,15 +19,15 @@ export function dateTimeLocalInputToIso(value: string): string {
   return new Date(value).toISOString();
 }
 
-const dateTimeFormatter = new Intl.DateTimeFormat('es', {
+const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
-});
+};
 
 /** ISO timestamp → "06/10/2026, 21:30" in local time. */
 export function formatDateTime(iso: string): string {
-  return dateTimeFormatter.format(new Date(iso));
+  return dateFormat(DATE_TIME_OPTIONS).format(new Date(iso));
 }

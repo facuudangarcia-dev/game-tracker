@@ -24,12 +24,14 @@ import { useLogout } from '../features/auth/useAuthMutations';
 import { useCurrentUser } from '../features/auth/useCurrentUser';
 import { GlobalSearch } from '../features/catalog/GlobalSearch';
 import { ApiStatusChip } from '../features/health/ApiStatusChip';
+import { LanguageSelector } from '../features/locale/LanguageSelector';
 import { messages } from '../i18n/messages';
 
+// Labels are looked up at render time so they follow the current language.
 const NAV_ITEMS = [
-  { to: '/', label: messages.nav.home, end: true },
-  { to: '/games', label: messages.nav.library, end: false },
-  { to: '/profile', label: messages.nav.profile, end: true },
+  { to: '/', label: 'home', end: true },
+  { to: '/games', label: 'library', end: false },
+  { to: '/profile', label: 'profile', end: true },
 ] as const;
 
 function Logo() {
@@ -91,11 +93,12 @@ export function AppLayout() {
                     '&.active': { color: 'primary.main', bgcolor: 'action.selected' },
                   }}
                 >
-                  {item.label}
+                  {messages.nav[item.label]}
                 </Button>
               ))}
             </Box>
           ) : null}
+          <LanguageSelector />
           {!isMobile ? <ApiStatusChip /> : null}
           {user ? <UserMenu user={user} /> : null}
         </Toolbar>
@@ -123,7 +126,7 @@ export function AppLayout() {
                   onClick={() => setDrawerOpen(false)}
                   sx={{ '&.active': { color: 'primary.main', bgcolor: 'action.selected' } }}
                 >
-                  <ListItemText primary={item.label} />
+                  <ListItemText primary={messages.nav[item.label]} />
                 </ListItemButton>
               ))}
             </List>

@@ -83,8 +83,8 @@ describe('Catalog exploration and configured add (e2e)', () => {
           expect.objectContaining({ slug: 'pc' }),
         ],
         genres: [
-          { id: expect.any(String), name: 'Aventura' },
-          { id: null, name: 'Superhero' },
+          { id: expect.any(String), slug: 'adventure', name: 'Aventura' },
+          { id: null, slug: null, name: 'Superhero' },
         ],
         developers: ['Insomniac Games'],
         publishers: ['Sony Interactive Entertainment'],

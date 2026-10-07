@@ -18,8 +18,8 @@ const spiderMan: CatalogGame = {
   coverUrl: '/api/catalog/igdb/images/cospidey?size=cover',
   platforms: [ps5, ps4],
   genres: [
-    { id: 'gen-adv', name: 'Aventura' },
-    { id: null, name: 'Superhero' },
+    { id: 'gen-adv', slug: 'adventure', name: 'Aventura' },
+    { id: null, slug: null, name: 'Superhero' },
   ],
   developers: ['Insomniac Games'],
   publishers: ['Sony Interactive Entertainment'],

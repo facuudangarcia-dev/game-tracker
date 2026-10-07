@@ -169,3 +169,12 @@ decisiones técnicas que afectan el comportamiento.
     "hypes"). Solo tipos permitidos (#27), con portada y sin contenido adulto. Caché de una hora;
     no se persiste nada. El fondo del hero es el artwork (o una captura) de uno de esos juegos,
     elegido al azar en cada visita.
+
+## Idiomas (2026-10-07)
+
+54. **Español e inglés:** selector con bandera en el header. La elección se guarda en el navegador
+    (sin migración; también funciona sin sesión). Por defecto, español. Se traducen la interfaz,
+    los formatos de fecha y los nombres de los géneros precargados. No se traducen los resúmenes
+    de IGDB, los nombres de plataformas ni los datos del usuario (por ejemplo, los nombres de sus
+    dificultades, que se crean en español). Banderas en SVG porque Windows no muestra los emojis
+    de banderas.

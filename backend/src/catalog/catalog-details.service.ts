@@ -30,7 +30,8 @@ export interface CatalogGameDto {
   coverUrl: string | null;
   /** Only platforms we know: the only ones the game can be added on. */
   platforms: PlatformResponseDto[];
-  genres: { id: string | null; name: string }[];
+  /** `id`/`slug` are null for provider genres we don't know yet. */
+  genres: { id: string | null; slug: string | null; name: string }[];
   developers: string[];
   publishers: string[];
   /** The current user's UserGames of this game (one per platform). */
@@ -82,7 +83,7 @@ export class CatalogDetailsService {
           .map(toPlatformResponse),
         genres: [...local.genres]
           .sort((a, b) => a.name.localeCompare(b.name))
-          .map((g) => ({ id: g.id, name: g.name })),
+          .map((g) => ({ id: g.id, slug: g.slug, name: g.name })),
         developers: local.developers,
         publishers: local.publishers,
         libraryEntries: await this.libraryEntries(userId, local.id),
