@@ -181,6 +181,8 @@ export interface CatalogGame {
   summary: string | null;
   releaseDate: string | null;
   coverUrl: string | null;
+  /** Wide high-resolution image for the page header, if any. */
+  artworkUrl: string | null;
   platforms: Platform[];
   genres: { id: string | null; slug: string | null; name: string }[];
   developers: string[];

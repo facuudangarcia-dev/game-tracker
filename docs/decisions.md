@@ -178,3 +178,10 @@ decisiones técnicas que afectan el comportamiento.
     de IGDB, los nombres de plataformas ni los datos del usuario (por ejemplo, los nombres de sus
     dificultades, que se crean en español). Banderas en SVG porque Windows no muestra los emojis
     de banderas.
+
+## Identidad visual en toda la app (2026-10-07)
+
+55. **Artwork de fondo:** la Home, la ficha del juego y el modal de agregar usan una imagen
+    ancha de IGDB: el artwork apaisado más grande (de al menos 1280 px de ancho; los más chicos
+    suelen ser logos) o, si no hay, una captura. No se guarda al importar: para juegos ya
+    importados se pide al proveedor (con caché) y, si no responde, la ficha se muestra sin él.

@@ -1,38 +1,97 @@
 import AddIcon from '@mui/icons-material/Add';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import BusinessIcon from '@mui/icons-material/Business';
+import CategoryIcon from '@mui/icons-material/Category';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import EventIcon from '@mui/icons-material/Event';
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
+import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router';
-import { Section } from '../components/Section';
 import { useCatalogGame } from '../features/catalog/queries';
-import { Facts } from '../features/game-detail/sections/MyGameSection';
 import { AddToLibraryDialog } from '../features/library/AddToLibraryDialog';
 import { GameCover } from '../features/library/GameCover';
 import type { CatalogGame } from '../features/library/types';
-import { messages } from '../i18n/messages';
 import { genreName } from '../i18n/genres';
+import { messages } from '../i18n/messages';
 import { ApiError } from '../lib/api/client';
 import { getErrorCode } from '../lib/api/errors';
 import { formatDate, formatYear } from '../lib/format';
+import { ambientBackground, brandGradient, glassSx, panelSx, reducedMotion } from '../theme/brand';
 
 const t = messages.catalog;
 
-function chips(items: string[]): ReactNode {
+function Tags({ items }: { items: string[] }) {
   if (items.length === 0) {
-    return t.none;
+    return <>{t.none}</>;
   }
   return (
-    <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: 'wrap' }}>
+    <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 0.75, mt: 0.25 }}>
       {items.map((item) => (
-        <Chip key={item} size="small" variant="outlined" label={item} />
+        <Box
+          key={item}
+          component="span"
+          sx={(theme) => ({
+            px: 1.1,
+            py: 0.3,
+            borderRadius: 99,
+            typography: 'body2',
+            fontWeight: 600,
+            color: 'text.primary',
+            bgcolor: alpha(theme.palette.primary.main, 0.12),
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+          })}
+        >
+          {item}
+        </Box>
       ))}
     </Stack>
+  );
+}
+
+/** A row of the game sheet: icon, label and value. */
+function SheetRow({
+  icon,
+  label,
+  wide = false,
+  children,
+}: {
+  icon: ReactNode;
+  label: string;
+  /** Takes two columns of the sheet on wide screens (long lists). */
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Box
+      component="div"
+      sx={{ display: 'flex', gap: 1.5, py: 1.5, gridColumn: wide ? { md: 'span 2' } : undefined }}
+    >
+      <Box sx={{ color: 'primary.main', pt: 0.25, display: 'flex' }} aria-hidden>
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography
+          component="dt"
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}
+        >
+          {label}
+        </Typography>
+        <Typography component="dd" sx={{ m: 0, fontWeight: 600 }}>
+          {children}
+        </Typography>
+      </Box>
+    </Box>
   );
 }
 
@@ -43,19 +102,9 @@ export function CatalogGamePage() {
 
   if (query.isPending) {
     return (
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={3}
-        aria-busy="true"
-        aria-label={messages.app.loading}
-      >
-        <Skeleton variant="rounded" width={220} height={293} />
-        <Stack spacing={1} sx={{ flex: 1 }}>
-          <Skeleton variant="text" width="60%" height={48} />
-          <Skeleton variant="text" width="30%" />
-          <Skeleton variant="rounded" width={160} height={40} />
-          <Skeleton variant="rounded" height={120} />
-        </Stack>
+      <Stack spacing={3} aria-busy="true" aria-label={messages.app.loading}>
+        <Skeleton variant="rounded" sx={{ height: { xs: 420, md: 460 }, borderRadius: 4 }} />
+        <Skeleton variant="rounded" height={160} sx={{ borderRadius: 3 }} />
       </Stack>
     );
   }
@@ -87,77 +136,228 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [artworkLoaded, setArtworkLoaded] = useState(false);
 
   const takenPlatformIds = game.libraryEntries.map((entry) => entry.platform.id);
   const canAdd = game.platforms.some((p) => !takenPlatformIds.includes(p.id));
   const year = formatYear(game.releaseDate);
+  const genres = game.genres.map(genreName);
+  // Without artwork, the cover itself (blurred) becomes the backdrop.
+  const backdrop = game.artworkUrl ?? game.coverUrl;
 
   return (
-    <Stack spacing={3}>
-      <Stack
+    <Stack spacing={{ xs: 3, md: 4 }}>
+      {/* Cinematic header: artwork backdrop, poster, title and the main action. */}
+      <Box
         component="header"
         aria-labelledby="catalog-game-title"
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={3}
+        sx={(theme) => ({
+          position: 'relative',
+          isolation: 'isolate',
+          overflow: 'hidden',
+          borderRadius: { xs: 3, md: 4 },
+          border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+          background: ambientBackground(theme),
+          minHeight: { md: 460 },
+          display: 'flex',
+          alignItems: 'flex-end',
+          p: { xs: 2.5, sm: 4, md: 5 },
+          pt: { xs: 16, sm: 20, md: 5 },
+          boxShadow: `0 30px 80px -40px ${alpha(theme.palette.primary.main, 0.45)}`,
+        })}
       >
-        <GameCover src={game.coverUrl} name={game.name} width={{ xs: 180, md: 240 }} />
-        <Stack spacing={1.5} sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            id="catalog-game-title"
-            variant="h4"
-            component="h1"
-            sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}
+        {backdrop ? (
+          <Box
+            component="img"
+            src={backdrop}
+            alt=""
+            aria-hidden
+            onLoad={() => setArtworkLoaded(true)}
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: -2,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center 25%',
+              opacity: artworkLoaded ? 1 : 0,
+              transition: 'opacity .8s ease',
+              // A cover stretched to a banner only works blurred.
+              filter: game.artworkUrl ? 'none' : 'blur(28px) saturate(1.3)',
+              transform: game.artworkUrl ? 'none' : 'scale(1.2)',
+              [reducedMotion]: { transition: 'none' },
+            }}
+          />
+        ) : null}
+        <Box
+          aria-hidden
+          sx={(theme) => {
+            const bg = theme.palette.background.default;
+            return {
+              position: 'absolute',
+              inset: 0,
+              zIndex: -1,
+              background: {
+                xs: `linear-gradient(0deg, ${bg} 35%, ${alpha(bg, 0.6)} 65%, ${alpha(bg, 0.1)} 100%)`,
+                md: [
+                  `linear-gradient(90deg, ${alpha(bg, 0.95)} 0%, ${alpha(bg, 0.75)} 45%, ${alpha(bg, 0.15)} 80%)`,
+                  `linear-gradient(0deg, ${alpha(bg, 0.9)} 0%, transparent 50%)`,
+                ].join(', '),
+              },
+            };
+          }}
+        />
+
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={{ xs: 2.5, sm: 4 }}
+          sx={{ alignItems: { xs: 'flex-start', sm: 'flex-end' }, width: '100%' }}
+        >
+          <Box
+            sx={(theme) => ({
+              flexShrink: 0,
+              borderRadius: 2,
+              overflow: 'hidden',
+              boxShadow: `0 30px 60px -20px rgba(0,0,0,0.9), 0 0 0 1px ${alpha(theme.palette.common.white, 0.14)}`,
+            })}
           >
-            {game.name}
-            {year ? (
-              <Typography component="span" variant="h5" color="text.secondary">
-                {` (${year})`}
+            <GameCover
+              src={game.coverUrl}
+              name={game.name}
+              width={{ xs: 132, sm: 180, md: 230 }}
+              square
+            />
+          </Box>
+
+          <Stack spacing={1.75} sx={{ minWidth: 0, flex: 1, alignItems: 'flex-start' }}>
+            {genres.length > 0 ? (
+              <Typography
+                variant="overline"
+                color="primary"
+                sx={{ fontWeight: 800, letterSpacing: 1.8, lineHeight: 1.5 }}
+              >
+                {[year, ...genres.slice(0, 3)].filter(Boolean).join(' · ')}
               </Typography>
             ) : null}
-          </Typography>
-          {game.developers.length > 0 ? (
-            <Typography color="text.secondary">{game.developers.join(', ')}</Typography>
-          ) : null}
-
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            sx={{ flexWrap: 'wrap', alignItems: 'center', pt: 1 }}
-          >
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<AddIcon />}
-              disabled={!canAdd}
-              onClick={() => setAdding(true)}
+            <Typography
+              id="catalog-game-title"
+              variant="h2"
+              component="h1"
+              sx={{
+                fontWeight: 900,
+                letterSpacing: { xs: -0.5, md: -1.5 },
+                lineHeight: 1.02,
+                fontSize: { xs: '2rem', sm: '2.6rem', md: '3.4rem' },
+                overflowWrap: 'anywhere',
+                textWrap: 'balance',
+              }}
             >
-              {t.addGame}
-            </Button>
-            {game.platforms.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {t.noPlatforms}
-              </Typography>
-            ) : !canAdd ? (
-              <Typography variant="body2" color="text.secondary">
-                {t.allPlatformsAdded}
+              {game.name}
+              {year ? (
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: '0.5em',
+                    fontWeight: 500,
+                    color: 'text.secondary',
+                    letterSpacing: 0,
+                  }}
+                >
+                  {` (${year})`}
+                </Typography>
+              ) : null}
+            </Typography>
+            {game.developers.length > 0 ? (
+              <Typography color="text.secondary" sx={{ fontWeight: 500 }}>
+                {t.by(game.developers.join(', '))}
               </Typography>
             ) : null}
-          </Stack>
+            {game.platforms.length > 0 ? (
+              <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 0.75 }}>
+                {game.platforms.map((platform) => (
+                  <Box
+                    key={platform.id}
+                    component="span"
+                    sx={(theme) => ({
+                      ...glassSx(theme, 0.5),
+                      px: 1,
+                      py: 0.2,
+                      borderRadius: 1,
+                      typography: 'caption',
+                      fontWeight: 700,
+                    })}
+                  >
+                    {platform.shortName}
+                  </Box>
+                ))}
+              </Stack>
+            ) : null}
 
-          {game.libraryEntries.length > 0 ? (
-            <Alert severity="success" variant="outlined" icon={<CheckCircleIcon />}>
-              <Stack spacing={1}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {t.inLibrary}
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              useFlexGap
+              sx={{
+                pt: 1,
+                alignItems: { xs: 'stretch', sm: 'center' },
+                width: { xs: '100%', sm: 'auto' },
+                flexWrap: 'wrap',
+              }}
+            >
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<AddIcon />}
+                disabled={!canAdd}
+                onClick={() => setAdding(true)}
+                sx={(theme) => ({
+                  px: 3.5,
+                  fontWeight: 800,
+                  color: theme.palette.common.white,
+                  background: brandGradient(theme, 110),
+                  boxShadow: `0 14px 30px -12px ${alpha(theme.palette.primary.main, 0.9)}`,
+                  '&:hover': { background: brandGradient(theme, 110), filter: 'brightness(1.08)' },
+                  '&.Mui-disabled': { background: alpha(theme.palette.common.white, 0.08) },
+                })}
+              >
+                {t.addGame}
+              </Button>
+              {game.platforms.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t.noPlatforms}
                 </Typography>
-                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+              ) : !canAdd ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t.allPlatformsAdded}
+                </Typography>
+              ) : null}
+            </Stack>
+
+            {game.libraryEntries.length > 0 ? (
+              <Box
+                sx={(theme) => ({
+                  ...glassSx(theme, 0.6),
+                  borderColor: alpha(theme.palette.success.main, 0.45),
+                  borderRadius: 2.5,
+                  p: 1.5,
+                  pr: 2,
+                })}
+              >
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+                  <CheckCircleIcon color="success" fontSize="small" aria-hidden />
+                  <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                    {t.inLibrary}
+                  </Typography>
+                </Stack>
+                <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 1 }}>
                   {game.libraryEntries.map((entry) => (
                     <Button
                       key={entry.userGameId}
                       size="small"
                       variant="outlined"
                       color="success"
+                      endIcon={<ArrowForwardIcon />}
                       component={RouterLink}
                       to={`/games/${entry.userGameId}`}
                     >
@@ -165,40 +365,106 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
                     </Button>
                   ))}
                 </Stack>
-              </Stack>
-            </Alert>
-          ) : null}
-        </Stack>
-      </Stack>
-
-      <Section id="resumen" title={t.summary}>
-        {game.summary ? (
-          <Stack spacing={1}>
-            <Typography sx={{ whiteSpace: 'pre-wrap' }}>{game.summary}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {t.summaryLanguageNote}
-            </Typography>
+              </Box>
+            ) : null}
           </Stack>
-        ) : (
-          <Typography color="text.secondary">{t.noSummary}</Typography>
-        )}
-      </Section>
+        </Stack>
+      </Box>
 
-      <Section id="informacion" title={t.information}>
-        <Facts
-          items={[
-            [t.platforms, chips(game.platforms.map((p) => p.name))],
-            [t.releaseDate, formatDate(game.releaseDate)],
-            [t.genres, chips(game.genres.map(genreName))],
-            [t.developers, game.developers.join(', ') || t.none],
-            [t.publishers, game.publishers.join(', ') || t.none],
-          ]}
-        />
-      </Section>
+      {/* Body: the game sheet as a strip of facts, then the summary as the main read. */}
+      <Stack spacing={{ xs: 3, md: 4 }}>
+        <Box
+          component="section"
+          aria-labelledby="catalog-information"
+          sx={(theme) => ({
+            ...panelSx(theme, theme.palette.secondary.main),
+            p: { xs: 2.5, md: 3 },
+          })}
+        >
+          <Typography
+            id="catalog-information"
+            variant="overline"
+            component="h2"
+            sx={{ fontWeight: 800, letterSpacing: 1.8, color: 'secondary.main' }}
+          >
+            {t.information}
+          </Typography>
+          <Box
+            component="dl"
+            sx={{
+              m: 0,
+              mt: 1,
+              display: 'grid',
+              columnGap: 3,
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, minmax(0, 1fr))',
+                md: 'repeat(6, minmax(0, 1fr))',
+              },
+            }}
+          >
+            <SheetRow icon={<EventIcon fontSize="small" />} label={t.releaseDate}>
+              {formatDate(game.releaseDate)}
+            </SheetRow>
+            <SheetRow icon={<SportsEsportsIcon fontSize="small" />} label={t.platforms} wide>
+              <Tags items={game.platforms.map((p) => p.name)} />
+            </SheetRow>
+            <SheetRow icon={<CategoryIcon fontSize="small" />} label={t.genres}>
+              <Tags items={genres} />
+            </SheetRow>
+            <SheetRow icon={<BusinessIcon fontSize="small" />} label={t.developers}>
+              {game.developers.join(', ') || t.none}
+            </SheetRow>
+            <SheetRow icon={<StorefrontIcon fontSize="small" />} label={t.publishers}>
+              {game.publishers.join(', ') || t.none}
+            </SheetRow>
+          </Box>
+        </Box>
+        <Box
+          component="section"
+          aria-labelledby="catalog-summary"
+          sx={(theme) => ({ ...panelSx(theme), p: { xs: 2.5, md: 4 } })}
+        >
+          <Typography
+            id="catalog-summary"
+            variant="overline"
+            color="primary"
+            component="h2"
+            sx={{ fontWeight: 800, letterSpacing: 1.8 }}
+          >
+            {t.summary}
+          </Typography>
+          {game.summary ? (
+            <>
+              <Typography
+                sx={{
+                  mt: 1,
+                  whiteSpace: 'pre-wrap',
+                  fontSize: { xs: '1rem', md: '1.1rem' },
+                  lineHeight: 1.75,
+                  color: 'text.primary',
+                }}
+              >
+                {game.summary}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                {t.summaryLanguageNote}
+              </Typography>
+            </>
+          ) : (
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              {t.noSummary}
+            </Typography>
+          )}
+        </Box>
+      </Stack>
 
       {adding ? (
         <AddToLibraryDialog
           gameName={game.name}
+          coverUrl={game.coverUrl}
+          artworkUrl={game.artworkUrl}
+          year={year}
           source={
             game.gameId
               ? { gameId: game.gameId }

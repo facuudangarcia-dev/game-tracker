@@ -29,6 +29,7 @@ export class FakeCatalogProvider implements GameCatalogProvider {
       coverRef: null,
       platformExternalIds: [],
       slug: null,
+      artworkRef: null,
       summary: null,
       genres: [],
       developers: [],

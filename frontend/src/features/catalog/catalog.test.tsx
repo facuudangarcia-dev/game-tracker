@@ -16,6 +16,7 @@ const spiderMan: CatalogGame = {
   summary: 'Be Spider-Man.',
   releaseDate: '2018-09-07',
   coverUrl: '/api/catalog/igdb/images/cospidey?size=cover',
+  artworkUrl: '/api/catalog/igdb/images/arspidey?size=artwork',
   platforms: [ps5, ps4],
   genres: [
     { id: 'gen-adv', slug: 'adventure', name: 'Aventura' },
@@ -204,9 +205,13 @@ describe('catalog game page', () => {
     expect(within(platformSelect).queryByText('PC')).not.toBeInTheDocument();
 
     await userEvent.selectOptions(platformSelect, 'PlayStation 4');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Estado inicial'), 'En progreso');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'En progreso' }));
     await userEvent.type(within(dialog).getByLabelText('Fecha de inicio (opcional)'), '2026-01-10');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Dificultad'), 'Difícil');
+    await userEvent.click(
+      within(within(dialog).getByRole('radiogroup', { name: 'Dificultad' })).getByRole('radio', {
+        name: 'Difícil',
+      }),
+    );
     await userEvent.type(within(dialog).getByLabelText(/Valoración/), '87');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Agregar juego' }));
 
@@ -222,6 +227,23 @@ describe('catalog game page', () => {
       },
       rating: 87,
     });
+  });
+
+  it('shows the cover, name and year of the game in the add dialog', async () => {
+    openCatalogPage(spiderMan);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Agregar juego' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Agregar juego' });
+
+    expect(within(dialog).getByRole('img', { name: "Marvel's Spider-Man" })).toHaveAttribute(
+      'src',
+      spiderMan.coverUrl,
+    );
+    expect(within(dialog).getByText("Marvel's Spider-Man")).toBeInTheDocument();
+    expect(within(dialog).getByText('(2018)', { exact: false })).toBeInTheDocument();
+    // Defaults: pending, "Normal" difficulty.
+    expect(within(dialog).getByRole('radio', { name: 'Pendiente' })).toBeChecked();
+    expect(within(dialog).getByRole('radio', { name: 'Normal' })).toBeChecked();
   });
 
   it('reuses an already imported game by its id', async () => {
@@ -252,7 +274,7 @@ describe('catalog game page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Agregar juego' }));
     const dialog = await screen.findByRole('dialog', { name: 'Agregar juego' });
     await userEvent.selectOptions(within(dialog).getByLabelText(/Plataforma/), 'PlayStation 5');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Estado inicial'), 'Completado');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Completado' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Agregar juego' }));
 
     expect(

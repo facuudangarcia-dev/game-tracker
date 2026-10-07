@@ -112,9 +112,12 @@ export const en: Messages = {
     allPlatformsAdded: 'You already added it on all its platforms.',
     inLibrary: 'Already in My games',
     viewMyGame: (platform: string) => `View my game (${platform})`,
+    by: (developers: string) => `Developed by ${developers}`,
   },
   addToLibrary: {
     title: 'Add game',
+    subtitle: 'Choose how you start tracking it.',
+    dates: 'Dates',
     platform: 'Platform',
     choosePlatform: 'Choose a platform',
     alreadyAdded: (platform: string) => `${platform} (already in My games)`,

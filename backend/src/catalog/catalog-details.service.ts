@@ -7,7 +7,7 @@ import { GenresService } from '../genres/genres.service';
 import { UserGame } from '../library/user-game.entity';
 import { type PlatformResponseDto, toPlatformResponse } from '../platforms/platforms.controller';
 import { PlatformsService, resolvePlatforms } from '../platforms/platforms.service';
-import { assetUrl, catalogCoverUrl } from './catalog-urls';
+import { assetUrl, catalogArtworkUrl, catalogCoverUrl } from './catalog-urls';
 import {
   type CatalogGameDetails,
   CatalogUnavailableError,
@@ -28,6 +28,8 @@ export interface CatalogGameDto {
   summary: string | null;
   releaseDate: string | null;
   coverUrl: string | null;
+  /** Wide high-resolution image (artwork or screenshot) for the page header, if any. */
+  artworkUrl: string | null;
   /** Only platforms we know: the only ones the game can be added on. */
   platforms: PlatformResponseDto[];
   /** `id`/`slug` are null for provider genres we don't know yet. */
@@ -78,6 +80,7 @@ export class CatalogDetailsService {
         summary: local.summary,
         releaseDate: local.releaseDate,
         coverUrl: local.coverAssetKey ? assetUrl(local.coverAssetKey) : null,
+        artworkUrl: await this.artworkOfImported(externalId),
         platforms: [...local.platforms]
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map(toPlatformResponse),
@@ -103,6 +106,9 @@ export class CatalogDetailsService {
       summary: details.summary,
       releaseDate: details.releaseDate,
       coverUrl: details.coverRef ? catalogCoverUrl(this.catalog.id, details.coverRef) : null,
+      artworkUrl: details.artworkRef
+        ? catalogArtworkUrl(this.catalog.id, details.artworkRef)
+        : null,
       platforms: resolvePlatforms(details.platformExternalIds, platformMap).map(toPlatformResponse),
       genres: await this.genres.describe(this.catalog.id, details.genres),
       developers: details.developers,
@@ -140,6 +146,19 @@ export class CatalogDetailsService {
     }
     this.cache.set(cacheKey, details);
     return details;
+  }
+
+  /**
+   * Artwork isn't stored on import: it's taken from the provider (cached). Purely
+   * decorative, so any failure just means no artwork and the page still works.
+   */
+  private async artworkOfImported(externalId: string): Promise<string | null> {
+    try {
+      const { artworkRef } = await this.fetchDetails(externalId);
+      return artworkRef ? catalogArtworkUrl(this.catalog.id, artworkRef) : null;
+    } catch {
+      return null;
+    }
   }
 
   private async libraryEntries(userId: string, gameId: string) {

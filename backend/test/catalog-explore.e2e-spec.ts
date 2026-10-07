@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import type { DataSource } from 'typeorm';
-import type { CatalogGameDto } from '../src/catalog/catalog-details.service';
+import { CatalogDetailsService, type CatalogGameDto } from '../src/catalog/catalog-details.service';
 import { Game } from '../src/games/game.entity';
 import { Genre } from '../src/genres/genre.entity';
 import { DifficultyKind } from '../src/library/difficulty.entity';
@@ -36,6 +36,7 @@ describe('Catalog exploration and configured add (e2e)', () => {
       summary: 'Be Spider-Man.',
       releaseDate: '2018-09-07',
       coverRef: 'cospidey',
+      artworkRef: 'arspidey',
       platformExternalIds: ['48', '167', '6', '999999'],
       genres: [
         { externalId: '31', name: 'Adventure' },
@@ -77,6 +78,7 @@ describe('Catalog exploration and configured add (e2e)', () => {
         summary: 'Be Spider-Man.',
         releaseDate: '2018-09-07',
         coverUrl: '/api/catalog/igdb/images/cospidey?size=cover',
+        artworkUrl: '/api/catalog/igdb/images/arspidey?size=artwork',
         platforms: [
           expect.objectContaining({ slug: 'ps5' }),
           expect.objectContaining({ slug: 'ps4' }),
@@ -102,6 +104,7 @@ describe('Catalog exploration and configured add (e2e)', () => {
 
     it('serves imported games from the database, even with the provider down', async () => {
       await addSpiderMan(alice, 'ps5').expect(201);
+      app.get(CatalogDetailsService).clearCache();
       catalog.failing = true;
 
       const body = (await getCatalogGame(alice).expect(200)).body as CatalogGameDto;
@@ -109,6 +112,17 @@ describe('Catalog exploration and configured add (e2e)', () => {
       expect(body.gameId).toEqual(expect.any(String));
       expect(body.coverUrl).toMatch(/^\/api\/assets\/covers\//);
       expect(body.genres.map((g) => g.name)).toEqual(['Aventura', 'Superhero']);
+      // The artwork is decorative: without the provider there is simply none.
+      expect(body.artworkUrl).toBeNull();
+    });
+
+    it('takes the artwork of an imported game from the provider', async () => {
+      await addSpiderMan(alice, 'ps5').expect(201);
+
+      const body = (await getCatalogGame(alice).expect(200)).body as CatalogGameDto;
+
+      expect(body.gameId).toEqual(expect.any(String));
+      expect(body.artworkUrl).toBe('/api/catalog/igdb/images/arspidey?size=artwork');
     });
 
     it("lists only the current user's library entries for the game", async () => {

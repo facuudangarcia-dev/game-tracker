@@ -42,6 +42,10 @@ const IMAGE_REF_PATTERN = /^[a-z0-9]{1,64}$/i;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TIMEOUT_MS = 10_000;
 const PAGE_SIZE = 500;
+/** Wide images (artworks and screenshots) with their size, to pick a good background. */
+const WIDE_IMAGE_FIELDS = 'artworks.image_id,artworks.width,artworks.height,screenshots.image_id';
+/** Smaller artworks look pixelated as a full-width background. */
+const MIN_WIDE_IMAGE_WIDTH = 1280;
 
 interface IgdbGame {
   id: number;
@@ -50,12 +54,18 @@ interface IgdbGame {
   summary?: string;
   first_release_date?: number;
   cover?: { image_id?: string };
-  artworks?: { image_id?: string }[];
-  screenshots?: { image_id?: string }[];
+  artworks?: IgdbImage[];
+  screenshots?: IgdbImage[];
   platforms?: number[];
   game_type?: number;
   genres?: { id: number; name: string }[];
   involved_companies?: { developer?: boolean; publisher?: boolean; company?: { name?: string } }[];
+}
+
+interface IgdbImage {
+  image_id?: string;
+  width?: number;
+  height?: number;
 }
 
 interface IgdbNamedEntry {
@@ -90,7 +100,8 @@ export class IgdbProvider implements GameCatalogProvider {
     }
     const [game] = await this.client.query<IgdbGame>(
       'games',
-      'fields name,slug,summary,first_release_date,cover.image_id,platforms,game_type,' +
+      'fields name,slug,summary,first_release_date,cover.image_id,' +
+        `${WIDE_IMAGE_FIELDS},platforms,game_type,` +
         'genres.name,involved_companies.developer,involved_companies.publisher,' +
         `involved_companies.company.name; where id = ${externalId};`,
     );
@@ -103,7 +114,7 @@ export class IgdbProvider implements GameCatalogProvider {
       unique(companies.filter((c) => c[role]).map((c) => c.company?.name));
 
     return {
-      ...toSummary(game),
+      ...toHighlight(game),
       slug: game.slug ?? null,
       summary: game.summary?.trim() || null,
       genres: (game.genres ?? []).map((g) => ({ externalId: String(g.id), name: g.name })),
@@ -128,7 +139,7 @@ export class IgdbProvider implements GameCatalogProvider {
         : `first_release_date > ${nowSeconds}`;
     const games = await this.client.query<IgdbGame>(
       'games',
-      'fields name,first_release_date,cover.image_id,artworks.image_id,screenshots.image_id,' +
+      `fields name,first_release_date,cover.image_id,${WIDE_IMAGE_FIELDS},` +
         'platforms,game_type; ' +
         `where game_type = (${ALLOWED_GAME_TYPE_IDS.join(',')}) & cover != null & ` +
         `themes != (${IGDB_EROTIC_THEME_ID}) & ${window}; ` +
@@ -211,10 +222,21 @@ function toSummary(game: IgdbGame): CatalogGameSummary {
   };
 }
 
+/**
+ * Best wide image for a background: the largest landscape artwork if it's big enough
+ * (IGDB "artworks" are sometimes small logos), else a screenshot, else any artwork.
+ */
+export function pickWideImage(game: Pick<IgdbGame, 'artworks' | 'screenshots'>): string | null {
+  const usable = (images: IgdbImage[] | undefined) => (images ?? []).filter((i) => i.image_id);
+  const artworks = usable(game.artworks);
+  const keyArt = artworks
+    .filter((a) => (a.width ?? 0) >= MIN_WIDE_IMAGE_WIDTH && (a.width ?? 0) > (a.height ?? 0))
+    .sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0];
+  return (keyArt ?? usable(game.screenshots)[0] ?? artworks[0])?.image_id ?? null;
+}
+
 function toHighlight(game: IgdbGame): CatalogHighlight {
-  const artwork =
-    game.artworks?.find((a) => a.image_id) ?? game.screenshots?.find((s) => s.image_id);
-  return { ...toSummary(game), artworkRef: artwork?.image_id ?? null };
+  return { ...toSummary(game), artworkRef: pickWideImage(game) };
 }
 
 function toTaxonomyEntry(entry: IgdbNamedEntry): CatalogTaxonomyEntry {

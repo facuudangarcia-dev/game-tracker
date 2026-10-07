@@ -112,9 +112,12 @@ export const es = {
     allPlatformsAdded: 'Ya lo agregaste en todas sus plataformas.',
     inLibrary: 'Ya está en Mis juegos',
     viewMyGame: (platform: string) => `Ver mi juego (${platform})`,
+    by: (developers: string) => `Desarrollado por ${developers}`,
   },
   addToLibrary: {
     title: 'Agregar juego',
+    subtitle: 'Elegí cómo empezás a registrarlo.',
+    dates: 'Fechas',
     platform: 'Plataforma',
     choosePlatform: 'Elegí una plataforma',
     alreadyAdded: (platform: string) => `${platform} (ya en Mis juegos)`,

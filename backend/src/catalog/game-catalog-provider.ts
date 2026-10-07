@@ -20,6 +20,8 @@ export interface CatalogGenreRef {
 /** Full data needed to import a game. */
 export interface CatalogGameDetails extends CatalogGameSummary {
   slug: string | null;
+  /** Wide image (artwork, else screenshot), if the provider has one. */
+  artworkRef: string | null;
   summary: string | null;
   genres: CatalogGenreRef[];
   developers: string[];
