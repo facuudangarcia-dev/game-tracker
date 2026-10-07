@@ -1,5 +1,5 @@
 import { hashKey, useMutation, useQueryClient } from '@tanstack/react-query';
-import { login, logout, register, type User } from './api';
+import { login, logout, register, resendVerification, type User, verifyEmail } from './api';
 import { currentUserQueryKey } from './queryKeys';
 
 export function useLogin() {
@@ -10,12 +10,17 @@ export function useLogin() {
   });
 }
 
+/** Registration doesn't log in: the email must be verified first. */
 export function useRegister() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: register,
-    onSuccess: (user) => queryClient.setQueryData<User | null>(currentUserQueryKey, user),
-  });
+  return useMutation({ mutationFn: register });
+}
+
+export function useVerifyEmail() {
+  return useMutation({ mutationFn: verifyEmail });
+}
+
+export function useResendVerification() {
+  return useMutation({ mutationFn: resendVerification });
 }
 
 export function useLogout() {

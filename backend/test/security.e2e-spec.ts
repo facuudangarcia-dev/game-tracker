@@ -5,8 +5,12 @@ import type { DataSource } from 'typeorm';
 import { DifficultyKind } from '../src/library/difficulty.entity';
 import type { UserGameDetailsDto } from '../src/library/dto/user-game-response.dto';
 import { Platform } from '../src/platforms/platform.entity';
+import { SessionsService } from '../src/auth/sessions.service';
+import { User } from '../src/users/user.entity';
 import { createTestApp } from './create-test-app';
-import { as, registerUser, type TestUser } from './test-users';
+import { as, registerUser, registrationBody, type TestUser } from './test-users';
+
+const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'gt_session';
 
 type Method = 'get' | 'post' | 'patch' | 'put' | 'delete';
 type Route = [Method, string, object?];
@@ -120,6 +124,58 @@ describe('Security review (e2e)', () => {
       const response = await send(method, url, body);
       expect({ method, url, status: response.status }).toEqual({ method, url, status: 401 });
     }
+  });
+
+  it('blocks an unverified user on every authenticated endpoint, even with a session', async () => {
+    // Unverified users can't log in; the session is forged server-side to simulate a
+    // manipulated client or a session that predates the verification requirement.
+    const server = app.getHttpServer();
+    await request(server)
+      .post('/api/auth/register')
+      .send(registrationBody('mallory@example.com'))
+      .expect(201);
+    const mallory = await dataSource
+      .getRepository(User)
+      .findOneByOrFail({ email: 'mallory@example.com' });
+    const global: Route[] = [
+      ['get', '/api/auth/me'],
+      ['get', '/api/platforms'],
+      ['get', '/api/genres'],
+      ['get', '/api/catalog/search?q=zelda'],
+      ['get', '/api/catalog/games/igdb/1942'],
+      ['get', '/api/catalog/igdb/images/co1wyy'],
+      ['get', '/api/library'],
+      ['post', '/api/library', { manualGame: { name: 'x' }, platformId: game.platform.id }],
+    ];
+
+    for (const [method, url, body] of [...global, ...routes]) {
+      const { token } = await app.get(SessionsService).create(mallory.id);
+      const response = await send(method, url, body, `${COOKIE_NAME}=${token}`);
+      expect({
+        method,
+        url,
+        status: response.status,
+        code: (response.body as { code?: string }).code,
+      }).toEqual({
+        method,
+        url,
+        status: 403,
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
+    // Each blocked session is also revoked.
+    const [{ count }] = await dataSource.query<{ count: string }[]>(
+      'SELECT count(*) FROM sessions WHERE user_id = $1',
+      [mallory.id],
+    );
+    expect(count).toBe('0');
+  });
+
+  it('keeps the email verification flow public', async () => {
+    await send('post', '/api/auth/verify-email', { email: 'a@example.com', code: '123456' }).expect(
+      400,
+    );
+    await send('post', '/api/auth/resend-verification', { email: 'a@example.com' }).expect(202);
   });
 
   it('keeps only the intended endpoints public', async () => {

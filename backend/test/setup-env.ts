@@ -14,3 +14,6 @@ process.env.ASSET_STORAGE_LOCAL_DIR = join(tmpdir(), `game-tracker-e2e-assets-${
 // Real credentials (if any) must never be used by tests.
 process.env.IGDB_CLIENT_ID = '';
 process.env.IGDB_CLIENT_SECRET = '';
+// Emails go to MockEmailService; the real Resend key must never be loaded.
+process.env.RESEND_API_KEY = '';
+process.env.EMAIL_FROM = '';

@@ -1,5 +1,6 @@
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import Logout from '@mui/icons-material/Logout';
+import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -26,13 +27,14 @@ export function UserMenu({ user }: { user: User }) {
         <AccountCircle />
       </IconButton>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ px: 2, py: 1, maxWidth: 280, overflowWrap: 'anywhere' }}
-        >
-          {user.email}
-        </Typography>
+        <Box sx={{ px: 2, py: 1, maxWidth: 280, overflowWrap: 'anywhere' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {user.username}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {user.email}
+          </Typography>
+        </Box>
         <Divider />
         <MenuItem
           disabled={logout.isPending}

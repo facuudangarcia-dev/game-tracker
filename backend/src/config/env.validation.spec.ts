@@ -27,6 +27,16 @@ describe('validateEnv', () => {
     expect(() => validateEnv(withoutDb)).toThrow(/POSTGRES_DB/);
   });
 
+  it('requires the email settings outside tests, without exposing their values', () => {
+    const env = { ...validEnv, NODE_ENV: 'development', RESEND_API_KEY: '', EMAIL_FROM: '' };
+
+    expect(() => validateEnv(env)).toThrow(/RESEND_API_KEY/);
+    expect(() => validateEnv(env)).toThrow(/EMAIL_FROM/);
+    expect(() =>
+      validateEnv({ ...env, RESEND_API_KEY: 're_test', EMAIL_FROM: 'Game Tracker <a@b.c>' }),
+    ).not.toThrow();
+  });
+
   it('rejects an AUTH_SECRET that is too short', () => {
     expect(() => validateEnv({ ...validEnv, AUTH_SECRET: 'short' })).toThrow(/AUTH_SECRET/);
   });

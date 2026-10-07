@@ -15,9 +15,19 @@ import { toUserResponse, type UserResponseDto } from '../users/user-response.dto
 import type { User } from '../users/user.entity';
 import { AuthService } from './auth.service';
 import { CurrentUser, Public } from './decorators';
-import { LoginDto, RegisterDto } from './dto/credentials.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  ResendVerificationDto,
+  VerifyEmailDto,
+} from './dto/credentials.dto';
 import { SessionCookie } from './session-cookie.service';
 
+/**
+ * Public auth routes are rate limited per IP (ThrottlerGuard). A CAPTCHA (e.g.
+ * Cloudflare Turnstile) can be added later as another guard on register and
+ * resend-verification without touching the services.
+ */
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -25,16 +35,12 @@ export class AuthController {
     private readonly cookie: SessionCookie,
   ) {}
 
+  /** Creates an unverified account and emails the code. Never opens a session. */
   @Public()
   @UseGuards(ThrottlerGuard)
   @Post('register')
-  async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<UserResponseDto> {
-    const { user, session } = await this.auth.register(dto.email, dto.password);
-    this.cookie.set(response, session.token, session.expiresAt);
-    return toUserResponse(user);
+  async register(@Body() dto: RegisterDto): Promise<UserResponseDto> {
+    return toUserResponse(await this.auth.register(dto));
   }
 
   @Public()
@@ -48,6 +54,24 @@ export class AuthController {
     const { user, session } = await this.auth.login(dto.email, dto.password);
     this.cookie.set(response, session.token, session.expiresAt);
     return toUserResponse(user);
+  }
+
+  /** Marks the email as verified. Doesn't log the user in: they go back to the login. */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Post('verify-email')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<void> {
+    await this.auth.verifyEmail(dto.email, dto.code);
+  }
+
+  /** Same response whether the account exists or not (no enumeration). */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async resendVerification(@Body() dto: ResendVerificationDto): Promise<void> {
+    await this.auth.resendVerification(dto.email);
   }
 
   /** Idempotent: always clears the cookie, and revokes the server session if there is one. */

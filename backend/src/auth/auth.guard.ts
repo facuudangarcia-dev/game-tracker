@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { AuthErrorCode } from './auth.constants';
+import { emailNotVerified } from './auth-errors';
 import type { AuthenticatedRequest } from './authenticated-request';
 import { IS_PUBLIC_KEY } from './decorators';
 import { SessionCookie } from './session-cookie.service';
@@ -48,6 +49,13 @@ export class AuthGuard implements CanActivate {
         code: AuthErrorCode.Unauthenticated,
         message: 'Authentication required',
       });
+    }
+
+    // Total block for unverified accounts, whatever the client does (docs/decisions.md #46).
+    if (!session.user.emailVerified) {
+      await this.sessions.revoke(token);
+      this.cookie.clear(response);
+      throw emailNotVerified();
     }
 
     if (session.renewed) {

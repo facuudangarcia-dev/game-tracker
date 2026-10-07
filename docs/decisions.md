@@ -48,7 +48,7 @@ código o se actualiza la decisión explícitamente).
 ## Fase 2 — Autenticación (2026-10-04)
 
 18. **Contraseñas:** mínimo 8, máximo 128 caracteres, sin reglas de composición (NIST 800-63B).
-19. **Registro:** deja al usuario logueado automáticamente.
+19. **Registro:** deja al usuario logueado automáticamente. _Reemplazada por #45._
 20. **Expiración de sesión:** deslizante. Duración `AUTH_SESSION_TTL_DAYS` (30 días por
     defecto); el uso renueva la expiración, como máximo una vez por día.
 21. **Alcance de la Fase 2:** backend + frontend (login, registro, logout, rutas protegidas).
@@ -133,3 +133,31 @@ decisiones técnicas que afectan el comportamiento.
     valoración opcional. Todo se crea en una sola transacción.
 44. **Juegos de catálogo desde Mis juegos:** elegir un resultado abre su página del catálogo
     (un único camino para agregarlos). Los juegos manuales se agregan con el mismo modal.
+
+## Username y verificación de email (2026-10-06)
+
+45. **Registro sin sesión:** el registro pide username, email, contraseña y la aceptación de
+    Términos de uso y Política de privacidad (un checkbox, links separados), crea la cuenta **no
+    verificada** y envía un código de 6 dígitos. No abre sesión; tras verificar, el usuario
+    vuelve al login. El login de una cuenta no verificada responde `403 EMAIL_NOT_VERIFIED`
+    (solo después de validar la contraseña, para no revelar qué emails existen).
+46. **Bloqueo total de no verificados:** el guard global rechaza cualquier endpoint autenticado
+    de un usuario no verificado y revoca esa sesión. Excepciones: verificación y reenvío, que
+    son públicos.
+47. **Códigos:** CSPRNG, 10 minutos, un solo uso, guardados como HMAC-SHA256 con `AUTH_SECRET`.
+    Máximo 5 intentos fallidos por código. Reenvío con cooldown de 60 s por cuenta, rate limit
+    por IP y respuesta idéntica exista o no la cuenta. Si el email de registro no se puede
+    enviar, la cuenta no se crea.
+48. **Username:** 3–30 caracteres `[a-z0-9_]`, se guarda en minúsculas (único sin distinguir
+    mayúsculas). El login sigue siendo con email.
+49. **Usuarios existentes:** se eliminaron antes de la migración (decisión del usuario: base
+    limpia). La migración se niega a correr si quedan usuarios, en lugar de inventarles username
+    o aceptación de términos.
+50. **Términos y privacidad:** se guarda fecha y versión aceptada de cada documento (versión
+    `2026-10-06`). Las páginas `/terms` y `/privacy` tienen un texto provisional marcado como
+    borrador, a reemplazar por el definitivo.
+51. **Emails con Resend** detrás de la abstracción `EmailService` (`ResendEmailService`; tests con
+    `MockEmailService`). `RESEND_API_KEY` y `EMAIL_FROM` son obligatorias para arrancar; no hay
+    modo que imprima códigos en consola.
+52. **CAPTCHA:** no se implementa ahora; los endpoints públicos quedan listos para sumar un guard
+    (p. ej. Cloudflare Turnstile).

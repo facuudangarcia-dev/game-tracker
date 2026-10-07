@@ -1,5 +1,5 @@
-import { AuthForm } from '../features/auth/AuthForm';
+import { LoginForm } from '../features/auth/LoginForm';
 
 export function LoginPage() {
-  return <AuthForm mode="login" />;
+  return <LoginForm />;
 }

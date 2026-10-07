@@ -1,13 +1,36 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { DataSource } from 'typeorm';
+import { EmailDeliveryError } from '../email/email.service';
 import type { User } from '../users/user.entity';
-import { EmailAlreadyRegisteredError, type UsersService } from '../users/users.service';
+import {
+  EmailAlreadyRegisteredError,
+  UsernameTakenError,
+  type UsersService,
+} from '../users/users.service';
 import { AuthService } from './auth.service';
+import type { EmailVerificationService } from './email-verification.service';
 import type { SessionsService } from './sessions.service';
 
-const user = { id: 'user-1', email: 'player@example.com', passwordHash: 'stored-hash' } as User;
+const user = {
+  id: 'user-1',
+  email: 'player@example.com',
+  username: 'player',
+  passwordHash: 'stored-hash',
+  emailVerified: true,
+} as User;
 const session = { token: 'token', expiresAt: new Date() };
+const registration = { username: 'player', email: user.email, password: 'secret-password' };
 
 function createService() {
+  const manager = { name: 'transaction-manager' };
+  const dataSource = {
+    transaction: jest.fn((work: (m: unknown) => Promise<unknown>) => work(manager)),
+  };
   const users = {
     create: jest.fn(),
     findByEmail: jest.fn(),
@@ -20,41 +43,75 @@ function createService() {
     verifyAgainstDummy: jest.fn().mockResolvedValue(undefined),
   };
   const sessions = { create: jest.fn().mockResolvedValue(session), revoke: jest.fn() };
+  const verification = {
+    issueAndSend: jest.fn().mockResolvedValue(undefined),
+    verify: jest.fn(),
+    resend: jest.fn(),
+  };
   const service = new AuthService(
+    dataSource as unknown as DataSource,
     users as unknown as UsersService,
     passwords,
     sessions as unknown as SessionsService,
+    verification as unknown as EmailVerificationService,
   );
-  return { service, users, passwords, sessions };
+  return { service, manager, users, passwords, sessions, verification };
+}
+
+async function errorOf(promise: Promise<unknown>): Promise<unknown> {
+  return promise.catch((e: unknown) => e);
 }
 
 describe('AuthService', () => {
   describe('register', () => {
-    it('stores the hashed password and opens a session', async () => {
-      const { service, users, sessions } = createService();
-      users.create.mockResolvedValue(user);
+    it('creates an unverified user with the legal versions, sends the code and opens no session', async () => {
+      const { service, manager, users, sessions, verification } = createService();
+      const created = { ...user, emailVerified: false };
+      users.create.mockResolvedValue(created);
+      const now = new Date('2026-10-06T12:00:00Z');
 
-      await expect(service.register(user.email, 'secret-password')).resolves.toEqual({
-        user,
-        session,
-      });
-      expect(users.create).toHaveBeenCalledWith(user.email, 'new-hash');
-      expect(sessions.create).toHaveBeenCalledWith(user.id);
+      await expect(service.register(registration, now)).resolves.toBe(created);
+
+      expect(users.create).toHaveBeenCalledWith(
+        {
+          email: user.email,
+          username: 'player',
+          passwordHash: 'new-hash',
+          termsVersion: '2026-10-06',
+          privacyVersion: '2026-10-06',
+          acceptedAt: now,
+        },
+        manager,
+      );
+      expect(verification.issueAndSend).toHaveBeenCalledWith(created, manager, now);
+      expect(sessions.create).not.toHaveBeenCalled();
     });
 
-    it('maps a duplicate email to 409 EMAIL_ALREADY_REGISTERED', async () => {
-      const { service, users, sessions } = createService();
-      users.create.mockRejectedValue(new EmailAlreadyRegisteredError());
+    it.each([
+      [new EmailAlreadyRegisteredError(), ConflictException, 'EMAIL_ALREADY_REGISTERED'],
+      [new UsernameTakenError(), ConflictException, 'USERNAME_TAKEN'],
+    ])('maps %s to 409', async (cause, type, code) => {
+      const { service, users, verification } = createService();
+      users.create.mockRejectedValue(cause);
 
-      const error: unknown = await service
-        .register(user.email, 'secret-password')
-        .catch((e: unknown) => e);
+      const error = await errorOf(service.register(registration));
 
-      expect(error).toBeInstanceOf(ConflictException);
-      expect((error as ConflictException).getResponse()).toMatchObject({
-        code: 'EMAIL_ALREADY_REGISTERED',
+      expect(error).toBeInstanceOf(type);
+      expect((error as ConflictException).getResponse()).toMatchObject({ code });
+      expect(verification.issueAndSend).not.toHaveBeenCalled();
+    });
+
+    it('fails with 503 (rolling the account back) when the email cannot be sent', async () => {
+      const { service, users, verification } = createService();
+      users.create.mockResolvedValue(user);
+      verification.issueAndSend.mockRejectedValue(new EmailDeliveryError());
+
+      const error = await errorOf(service.register(registration));
+
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect((error as ServiceUnavailableException).getResponse()).toMatchObject({
+        code: 'EMAIL_DELIVERY_FAILED',
       });
-      expect(sessions.create).not.toHaveBeenCalled();
     });
   });
 
@@ -97,6 +154,32 @@ describe('AuthService', () => {
         code: 'INVALID_CREDENTIALS',
       });
       expect(passwords.verifyAgainstDummy).toHaveBeenCalledWith('whatever');
+    });
+
+    it('refuses an unverified account (after checking the password) without a session', async () => {
+      const { service, users, passwords, sessions } = createService();
+      users.findByEmail.mockResolvedValue({ ...user, emailVerified: false });
+      passwords.verify.mockResolvedValue(true);
+
+      const error = await errorOf(service.login(user.email, 'secret-password'));
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect((error as ForbiddenException).getResponse()).toMatchObject({
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+      expect(sessions.create).not.toHaveBeenCalled();
+    });
+
+    it('reports a wrong password as INVALID_CREDENTIALS even for an unverified account', async () => {
+      const { service, users, passwords } = createService();
+      users.findByEmail.mockResolvedValue({ ...user, emailVerified: false });
+      passwords.verify.mockResolvedValue(false);
+
+      const error = await errorOf(service.login(user.email, 'wrong'));
+
+      expect((error as UnauthorizedException).getResponse()).toMatchObject({
+        code: 'INVALID_CREDENTIALS',
+      });
     });
 
     it('upgrades the stored hash when its parameters are outdated', async () => {

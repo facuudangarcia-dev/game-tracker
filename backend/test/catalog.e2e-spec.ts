@@ -9,6 +9,7 @@ import { Genre } from '../src/genres/genre.entity';
 import { Platform } from '../src/platforms/platform.entity';
 import { User } from '../src/users/user.entity';
 import { createTestApp } from './create-test-app';
+import { registerUser as signUp } from './test-users';
 
 describe('Catalog base: platforms, genres and games (e2e)', () => {
   let app: INestApplication<App>;
@@ -34,13 +35,9 @@ describe('Catalog base: platforms, genres and games (e2e)', () => {
   });
 
   async function registerUser(email: string): Promise<{ user: User; cookie: string }> {
-    const response = await request(app.getHttpServer())
-      .post('/api/auth/register')
-      .send({ email, password: 'super-secret-1' })
-      .expect(201);
-    const setCookie = (response.headers['set-cookie'] as unknown as string[])[0];
+    const { cookie } = await signUp(app, email);
     const user = await dataSource.getRepository(User).findOneByOrFail({ email });
-    return { user, cookie: setCookie.split(';')[0] };
+    return { user, cookie };
   }
 
   const platformBySlug = (slug: string) => platforms.findOneByOrFail({ slug });

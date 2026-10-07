@@ -4,10 +4,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { EnvironmentVariables } from '../config/env.validation';
+import { EmailModule } from '../email/email.module';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { EmailVerificationService } from './email-verification.service';
 import { PasswordHasher } from './password-hasher.service';
 import { Session } from './session.entity';
 import { SessionCookie } from './session-cookie.service';
@@ -17,7 +19,8 @@ import { SessionsService } from './sessions.service';
   imports: [
     TypeOrmModule.forFeature([Session]),
     UsersModule,
-    // Brute-force protection for login/register (applied per route with ThrottlerGuard).
+    EmailModule,
+    // Brute-force and spam protection for the public auth routes (per route and IP).
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<EnvironmentVariables, true>) => [
@@ -28,6 +31,7 @@ import { SessionsService } from './sessions.service';
   controllers: [AuthController],
   providers: [
     AuthService,
+    EmailVerificationService,
     PasswordHasher,
     SessionsService,
     SessionCookie,

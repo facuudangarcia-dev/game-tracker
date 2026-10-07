@@ -8,6 +8,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
 import { AssetStorageDriver } from '../assets/asset-storage';
@@ -84,6 +85,18 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   IGDB_CLIENT_SECRET?: string;
+
+  // Email delivery (Resend). Required to run the app (verification is mandatory);
+  // tests replace the email service with a mock and never need them.
+  @ValidateIf((env: EnvironmentVariables) => env.NODE_ENV !== NodeEnv.Test)
+  @IsString()
+  @IsNotEmpty()
+  RESEND_API_KEY?: string;
+
+  @ValidateIf((env: EnvironmentVariables) => env.NODE_ENV !== NodeEnv.Test)
+  @IsString()
+  @IsNotEmpty()
+  EMAIL_FROM?: string;
 
   @IsEnum(AssetStorageDriver)
   ASSET_STORAGE_DRIVER: AssetStorageDriver = AssetStorageDriver.Local;

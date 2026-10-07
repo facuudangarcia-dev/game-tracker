@@ -76,9 +76,49 @@ export const messages = {
   },
   profile: {
     title: 'Mi perfil',
+    username: 'Username',
     email: 'Email',
     memberSince: 'Miembro desde',
     logout: 'Cerrar sesión',
+  },
+  legal: {
+    draftNotice:
+      'Borrador: este texto es provisional y debe reemplazarse por la versión definitiva antes de publicar la aplicación.',
+    version: (version: string) => `Versión ${version}`,
+    terms: {
+      title: 'Términos de uso',
+      sections: [
+        {
+          title: 'Uso de Game Tracker',
+          body: 'Game Tracker es un diario personal de videojuegos. Al crear una cuenta aceptás usarlo de forma personal y respetuosa.',
+        },
+        {
+          title: 'Tu cuenta',
+          body: 'Sos responsable de mantener la confidencialidad de tu contraseña y de la actividad de tu cuenta.',
+        },
+        {
+          title: 'Contenido del catálogo',
+          body: 'La información de los juegos proviene de catálogos externos y se muestra tal como la proveen.',
+        },
+      ],
+    },
+    privacy: {
+      title: 'Política de privacidad',
+      sections: [
+        {
+          title: 'Datos que guardamos',
+          body: 'Tu username, tu email, tu contraseña cifrada y los datos de tu biblioteca de juegos.',
+        },
+        {
+          title: 'Para qué los usamos',
+          body: 'Para que puedas iniciar sesión, verificar tu email y llevar tu historial. Tu biblioteca es privada.',
+        },
+        {
+          title: 'Emails',
+          body: 'Solo te enviamos emails necesarios para tu cuenta, como el código de verificación.',
+        },
+      ],
+    },
   },
   apiStatus: {
     checking: 'API: comprobando…',
@@ -349,6 +389,7 @@ export const messages = {
     },
   },
   auth: {
+    username: 'Username',
     email: 'Email',
     password: 'Contraseña',
     showPassword: 'Mostrar contraseña',
@@ -366,8 +407,39 @@ export const messages = {
       submit: 'Crear cuenta',
       hasAccount: '¿Ya tenés cuenta?',
       goToLogin: 'Iniciá sesión',
+      acceptPrefix: 'Acepto los ',
+      terms: 'Términos de uso',
+      acceptMiddle: ' y la ',
+      privacy: 'Política de privacidad',
+      acceptSuffix: '.',
+    },
+    notVerified: {
+      body: 'Tenés que verificar tu email antes de iniciar sesión.',
+      action: 'Verificar email',
+    },
+    verified: 'Email verificado. Ya podés iniciar sesión.',
+    verify: {
+      title: 'Verificá tu email',
+      sentTo: 'Te enviamos un código de 6 dígitos a:',
+      enterCode:
+        'Ingresá el código de 6 dígitos que te enviamos. Si venció o no lo encontrás, pedí uno nuevo.',
+      emailLabel: 'Email de tu cuenta',
+      code: 'Código de verificación',
+      submit: 'Verificar email',
+      resend: 'Reenviar código',
+      resendIn: (seconds: number) => `Reenviar código (${seconds} s)`,
+      resent: 'Si la cuenta existe y no está verificada, te enviamos un código nuevo.',
+      expiresHint: 'El código vence a los 10 minutos.',
+      backToLogin: 'Volver a iniciar sesión',
     },
     validation: {
+      usernameRequired: 'Ingresá un username.',
+      usernameLength: (min: number, max: number) => `Entre ${min} y ${max} caracteres.`,
+      usernameChars: 'Solo letras, números y guión bajo (_).',
+      usernameHint: (min: number, max: number) =>
+        `Entre ${min} y ${max} caracteres: letras, números y _.`,
+      termsRequired: 'Tenés que aceptar los Términos de uso y la Política de privacidad.',
+      codeInvalid: 'Ingresá los 6 dígitos del código.',
       emailRequired: 'Ingresá tu email.',
       emailInvalid: 'Ingresá un email válido.',
       passwordRequired: 'Ingresá tu contraseña.',
@@ -378,6 +450,11 @@ export const messages = {
     serverErrors: {
       INVALID_CREDENTIALS: 'Email o contraseña incorrectos.',
       EMAIL_ALREADY_REGISTERED: 'Ya existe una cuenta con ese email.',
+      USERNAME_TAKEN: 'Ese username ya está en uso.',
+      EMAIL_NOT_VERIFIED: 'Tenés que verificar tu email antes de iniciar sesión.',
+      INVALID_VERIFICATION_CODE: 'El código es incorrecto o venció. Revisalo o pedí uno nuevo.',
+      EMAIL_DELIVERY_FAILED:
+        'No pudimos enviar el email de verificación. Intentá de nuevo en unos minutos.',
       TOO_MANY_REQUESTS: 'Demasiados intentos. Esperá un minuto y volvé a intentar.',
       INVALID_DATA: 'Revisá los datos ingresados.',
     },

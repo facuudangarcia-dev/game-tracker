@@ -1,5 +1,5 @@
-import { AuthForm } from '../features/auth/AuthForm';
+import { RegisterForm } from '../features/auth/RegisterForm';
 
 export function RegisterPage() {
-  return <AuthForm mode="register" />;
+  return <RegisterForm />;
 }

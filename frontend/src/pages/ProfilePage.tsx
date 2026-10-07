@@ -11,7 +11,7 @@ import { formatDate } from '../lib/format';
 
 const t = messages.profile;
 
-/** Deliberately simple profile: email and logout (avatar, bio, social... are V3). */
+/** Deliberately simple profile: username, email and logout (avatar, bio, social... are V3). */
 export function ProfilePage() {
   const { data: user } = useCurrentUser();
   const logout = useLogout();
@@ -29,6 +29,7 @@ export function ProfilePage() {
         <Stack spacing={3}>
           <Facts
             items={[
+              [t.username, user.username],
               [t.email, user.email],
               [t.memberSince, formatDate(user.createdAt.slice(0, 10))],
             ]}

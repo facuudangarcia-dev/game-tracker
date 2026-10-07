@@ -9,6 +9,13 @@ export function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+/** Name of the unique constraint/index violated by `error`, if it is a unique violation. */
+export function violatedUniqueConstraint(error: unknown): string | undefined {
+  return isUniqueViolation(error)
+    ? ((error as QueryFailedError).driverError as { constraint?: string }).constraint
+    : undefined;
+}
+
 /** Escapes LIKE/ILIKE wildcards so user input is matched literally. */
 export function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');

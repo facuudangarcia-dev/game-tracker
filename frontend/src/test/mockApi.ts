@@ -51,7 +51,9 @@ export function mockApi(customHandlers: Record<string, Handler>) {
 
 export const testUser = {
   id: 'user-1',
+  username: 'player_one',
   email: 'player@example.com',
+  emailVerified: true,
   createdAt: '2026-10-04T12:00:00.000Z',
 };
 

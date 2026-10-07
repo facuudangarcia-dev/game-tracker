@@ -1,7 +1,22 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { EmailDeliveryError } from '../email/email.service';
 import type { User } from '../users/user.entity';
-import { EmailAlreadyRegisteredError, UsersService } from '../users/users.service';
-import { AuthErrorCode } from './auth.constants';
+import {
+  EmailAlreadyRegisteredError,
+  UsernameTakenError,
+  UsersService,
+} from '../users/users.service';
+import { emailNotVerified } from './auth-errors';
+import { AuthErrorCode, PRIVACY_VERSION, TERMS_VERSION } from './auth.constants';
+import { EmailVerificationService } from './email-verification.service';
 import { PasswordHasher } from './password-hasher.service';
 import { type IssuedSession, SessionsService } from './sessions.service';
 
@@ -10,33 +25,49 @@ export interface AuthResult {
   session: IssuedSession;
 }
 
+export interface Registration {
+  username: string;
+  email: string;
+  password: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly users: UsersService,
     private readonly passwords: PasswordHasher,
     private readonly sessions: SessionsService,
+    private readonly verification: EmailVerificationService,
   ) {}
 
-  /** Creates the account and logs the user in (docs/decisions.md #19). */
-  async register(email: string, password: string): Promise<AuthResult> {
-    const passwordHash = await this.passwords.hash(password);
+  /**
+   * Creates an unverified account and emails it a verification code. No session
+   * is opened (docs/decisions.md #45). Atomic: if the email can't be sent, the
+   * account isn't created and the user can simply try again.
+   */
+  async register(input: Registration, now = new Date()): Promise<User> {
+    const passwordHash = await this.passwords.hash(input.password);
 
-    let user: User;
     try {
-      user = await this.users.create(email, passwordHash);
+      return await this.dataSource.transaction(async (manager) => {
+        const user = await this.users.create(
+          {
+            email: input.email,
+            username: input.username,
+            passwordHash,
+            termsVersion: TERMS_VERSION,
+            privacyVersion: PRIVACY_VERSION,
+            acceptedAt: now,
+          },
+          manager,
+        );
+        await this.verification.issueAndSend(user, manager, now);
+        return user;
+      });
     } catch (error) {
-      if (error instanceof EmailAlreadyRegisteredError) {
-        throw new ConflictException({
-          statusCode: 409,
-          code: AuthErrorCode.EmailAlreadyRegistered,
-          message: 'Email already registered',
-        });
-      }
-      throw error;
+      throw mapRegistrationError(error);
     }
-
-    return { user, session: await this.sessions.create(user.id) };
   }
 
   async login(email: string, password: string): Promise<AuthResult> {
@@ -53,12 +84,56 @@ export class AuthService {
       await this.users.updatePasswordHash(user.id, await this.passwords.hash(password));
     }
 
+    // Checked only after the password, so it doesn't reveal which emails exist.
+    if (!user.emailVerified) {
+      throw emailNotVerified();
+    }
+
     return { user, session: await this.sessions.create(user.id) };
+  }
+
+  async verifyEmail(email: string, code: string): Promise<void> {
+    if ((await this.verification.verify(email, code)) !== 'verified') {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: AuthErrorCode.InvalidVerificationCode,
+        message: 'Invalid or expired verification code',
+      });
+    }
+  }
+
+  resendVerification(email: string): Promise<void> {
+    return this.verification.resend(email);
   }
 
   logout(token: string): Promise<void> {
     return this.sessions.revoke(token);
   }
+}
+
+function mapRegistrationError(error: unknown): unknown {
+  if (error instanceof EmailAlreadyRegisteredError) {
+    return new ConflictException({
+      statusCode: 409,
+      code: AuthErrorCode.EmailAlreadyRegistered,
+      message: 'Email already registered',
+    });
+  }
+  if (error instanceof UsernameTakenError) {
+    return new ConflictException({
+      statusCode: 409,
+      code: AuthErrorCode.UsernameTaken,
+      message: 'Username already taken',
+    });
+  }
+  if (error instanceof EmailDeliveryError) {
+    return new ServiceUnavailableException({
+      statusCode: 503,
+      code: AuthErrorCode.EmailDeliveryFailed,
+      message: 'The verification email could not be sent',
+    });
+  }
+  return error;
 }
 
 function invalidCredentials(): UnauthorizedException {

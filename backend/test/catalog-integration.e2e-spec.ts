@@ -12,6 +12,7 @@ import { CatalogUnavailableError } from '../src/catalog/game-catalog-provider';
 import { Game } from '../src/games/game.entity';
 import { User } from '../src/users/user.entity';
 import { createTestApp } from './create-test-app';
+import { registerUser } from './test-users';
 import { FAKE_JPEG, type FakeCatalogProvider } from './fake-catalog-provider';
 
 const IGDB = CatalogProvider.Igdb;
@@ -56,11 +57,7 @@ describe('Catalog integration: search, import and covers (e2e)', () => {
   });
 
   async function login(email = 'player@example.com'): Promise<{ cookie: string; user: User }> {
-    const response = await request(app.getHttpServer())
-      .post('/api/auth/register')
-      .send({ email, password: 'super-secret-1' })
-      .expect(201);
-    const cookie = (response.headers['set-cookie'] as unknown as string[])[0].split(';')[0];
+    const { cookie } = await registerUser(app, email);
     return { cookie, user: await dataSource.getRepository(User).findOneByOrFail({ email }) };
   }
 

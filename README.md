@@ -42,7 +42,8 @@ Frontend (React)  ──/api──▶  Backend API (NestJS)  ──▶  PostgreS
 game-tracker/
 ├── backend/                  # API NestJS
 │   ├── src/
-│   │   ├── auth/             # sesiones, guard global, login/registro/logout
+│   │   ├── auth/             # sesiones, guard global, registro/verificación/login/logout
+│   │   ├── email/            # EmailService (Resend) y plantilla del código de verificación
 │   │   ├── config/           # carga y validación de variables de entorno
 │   │   ├── assets/           # almacenamiento de assets (portadas) y GET /api/assets
 │   │   ├── catalog/          # GameCatalogProvider, IGDB, búsqueda e importación
@@ -107,7 +108,8 @@ versiona (`.gitignore`); `.env.example` documenta todas las variables.
 | `NODE_ENV`, `BACKEND_PORT`                                 | Entorno y puerto de la API                                                                         |
 | `FRONTEND_ORIGIN`                                          | Origen permitido por CORS                                                                          |
 | `AUTH_SECRET`, `AUTH_COOKIE_NAME`, `AUTH_SESSION_TTL_DAYS` | Sesiones. `AUTH_SECRET` ≥ 32 caracteres (cambiarlo cierra todas las sesiones)                      |
-| `AUTH_RATE_LIMIT_PER_MINUTE`                               | Intentos de login/registro por IP y minuto (por defecto 10)                                        |
+| `AUTH_RATE_LIMIT_PER_MINUTE`                               | Intentos por IP, minuto y endpoint público de auth (por defecto 10)                                |
+| `RESEND_API_KEY`, `EMAIL_FROM`                             | Envío de emails (código de verificación) con Resend. **Secreto, solo backend**. Obligatorias       |
 | `CATALOG_PROVIDER`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Catálogo externo. **Solo backend**. Sin credenciales, la búsqueda devuelve solo resultados locales |
 | `ASSET_STORAGE_DRIVER`, `ASSET_STORAGE_LOCAL_DIR`          | Almacenamiento de portadas (hoy `local`, en `backend/storage`)                                     |
 | `VITE_API_BASE_URL`                                        | URL base de la API vista por el navegador (por defecto `/api`)                                     |
@@ -116,6 +118,20 @@ versiona (`.gitignore`); `.env.example` documenta todas las variables.
 El backend valida todas sus variables al arrancar (class-validator) y no inicia si falta alguna.
 Solo las variables con prefijo `VITE_` llegan al bundle del navegador: nunca pongas secretos con
 ese prefijo.
+
+### Emails (Resend)
+
+El código de verificación se envía con [Resend](https://resend.com):
+
+1. Creá una cuenta en Resend y generá una API key (**API Keys → Create API Key**).
+2. Ponela en `.env` como `RESEND_API_KEY` (nunca en el código ni en commits).
+3. Definí el remitente en `EMAIL_FROM`, por ejemplo `Game Tracker <no-reply@tu-dominio.com>`.
+   Sin dominio propio podés usar `Game Tracker <onboarding@resend.dev>`, pero Resend solo
+   entrega esos emails a la dirección de tu propia cuenta de Resend (alcanza para probar).
+   Para enviar a cualquier dirección hay que verificar un dominio en Resend.
+
+Sin `RESEND_API_KEY` y `EMAIL_FROM` el backend no arranca (salvo en tests, que usan un
+`MockEmailService` y nunca llaman a Resend). Los logs nunca incluyen la API key ni los códigos.
 
 Para generar un `AUTH_SECRET`:
 
@@ -166,12 +182,39 @@ header del frontend muestra ese estado.
 
 ## Autenticación
 
-| Endpoint                  | Acceso  | Descripción                                                       |
-| ------------------------- | ------- | ----------------------------------------------------------------- |
-| `POST /api/auth/register` | público | Crea la cuenta (email + contraseña) y deja la sesión iniciada     |
-| `POST /api/auth/login`    | público | Inicia sesión                                                     |
-| `POST /api/auth/logout`   | público | Invalida la sesión en el servidor y borra la cookie (idempotente) |
-| `GET /api/auth/me`        | sesión  | Usuario actual (`401` si no hay sesión)                           |
+| Endpoint                             | Acceso  | Descripción                                                                         |
+| ------------------------------------ | ------- | ----------------------------------------------------------------------------------- |
+| `POST /api/auth/register`            | público | Crea la cuenta **no verificada** y envía el código por email. No inicia sesión      |
+| `POST /api/auth/verify-email`        | público | Verifica el email con el código de 6 dígitos (`204`). No inicia sesión              |
+| `POST /api/auth/resend-verification` | público | Envía un código nuevo (`202` siempre, exista o no la cuenta)                        |
+| `POST /api/auth/login`               | público | Inicia sesión. `403 EMAIL_NOT_VERIFIED` (sin cookie) si el email no está verificado |
+| `POST /api/auth/logout`              | público | Invalida la sesión en el servidor y borra la cookie (idempotente)                   |
+| `GET /api/auth/me`                   | sesión  | Usuario actual (`401` si no hay sesión)                                             |
+
+**Registro:** username + email + contraseña + aceptación de Términos de uso y Política de
+privacidad (`acceptTerms` y `acceptPrivacy`, ambos obligatorios; en el frontend un único
+checkbox con links a `/terms` y `/privacy`). Se guardan la fecha y la versión aceptada de cada
+documento. El username tiene 3–30 caracteres (letras, números y `_`), se guarda en minúsculas y
+es único sin distinguir mayúsculas.
+
+**Verificación de email (obligatoria):**
+
+- Código de 6 dígitos generado con el CSPRNG del sistema (`crypto.randomInt`), de un solo uso,
+  válido 10 minutos. En la base solo se guarda su HMAC-SHA256 (con `AUTH_SECRET`, ligado al
+  usuario), nunca el código.
+- Código incorrecto, vencido, ya usado o de una cuenta inexistente: la misma respuesta
+  (`400 INVALID_VERIFICATION_CODE`). Tras 5 intentos fallidos el código se invalida.
+- Reenvío: invalida el código anterior, tiene un cooldown de 60 s por cuenta y responde siempre
+  igual (no permite enumerar cuentas). El envío ocurre en segundo plano.
+- Si el email de registro no se puede enviar, la cuenta no se crea (`503 EMAIL_DELIVERY_FAILED`)
+  y se puede reintentar.
+- **Bloqueo total:** un usuario no verificado no puede iniciar sesión, y el guard global rechaza
+  con `403 EMAIL_NOT_VERIFIED` (y revoca la sesión) cualquier endpoint autenticado aunque
+  presente una sesión válida. Solo quedan accesibles los endpoints públicos de verificación y
+  reenvío.
+- **CAPTCHA:** no implementado. Los endpoints públicos de auth están preparados para sumar un
+  guard (por ejemplo Cloudflare Turnstile) sin tocar los servicios; hoy se protegen con rate
+  limiting y cooldown.
 
 - **Sesiones en PostgreSQL** (tabla `sessions`) identificadas por un token aleatorio de 256 bits
   en una cookie `HttpOnly`, `SameSite=Lax` (`Secure` en producción). En la base solo se guarda
@@ -182,10 +225,12 @@ header del frontend muestra ese estado.
   para email inexistente y contraseña incorrecta, con tiempos equivalentes.
 - **Seguro por defecto:** un guard global exige sesión en todos los endpoints salvo los marcados
   con `@Public()`. Los endpoints de negocio solo deben usar `@CurrentUser()`.
-- **Rate limiting** en login y registro (`AUTH_RATE_LIMIT_PER_MINUTE` por IP). En producción,
+- **Rate limiting** en registro, login, verificación y reenvío (`AUTH_RATE_LIMIT_PER_MINUTE` por
+  IP y endpoint). En producción,
   detrás de un reverse proxy habrá que configurar `trust proxy` para que la IP sea la real.
 - Los errores llevan un `code` estable (`INVALID_CREDENTIALS`, `EMAIL_ALREADY_REGISTERED`,
-  `UNAUTHENTICATED`); el frontend lo traduce a textos en español.
+  `USERNAME_TAKEN`, `UNAUTHENTICATED`, `EMAIL_NOT_VERIFIED`, `INVALID_VERIFICATION_CODE`,
+  `EMAIL_DELIVERY_FAILED`); el frontend lo traduce a textos en español.
 
 ## Modelo de catálogo
 
@@ -281,7 +326,10 @@ Mis juegos, Mi perfil); en mobile la navegación pasa a un menú lateral y el bu
 | `/catalog/:provider/:externalId` | Juego del catálogo ("este juego existe") con **+ Agregar juego** |
 | `/games`                         | Mis juegos: búsqueda, filtros y orden de la biblioteca personal  |
 | `/games/:id`                     | Mi juego: partidas, sesiones, platino, dificultades y notas      |
-| `/profile`                       | Mi perfil: email y cierre de sesión                              |
+| `/profile`                       | Mi perfil: username, email y cierre de sesión                    |
+| `/register`, `/login`            | Registro e inicio de sesión (solo sin sesión)                    |
+| `/verify-email?email=…`          | "Verificá tu email": código de 6 dígitos y reenvío               |
+| `/terms`, `/privacy`             | Términos de uso y Política de privacidad (públicas, borrador)    |
 
 Flujo para agregar un juego: buscador global → página del catálogo → **Agregar juego** → modal
 (plataforma entre las que informa el catálogo, estado inicial, fechas, dificultad, valoración) →
