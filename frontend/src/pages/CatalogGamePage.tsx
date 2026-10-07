@@ -61,20 +61,14 @@ function Tags({ items }: { items: string[] }) {
 function SheetRow({
   icon,
   label,
-  wide = false,
   children,
 }: {
   icon: ReactNode;
   label: string;
-  /** Takes two columns of the sheet on wide screens (long lists). */
-  wide?: boolean;
   children: ReactNode;
 }) {
   return (
-    <Box
-      component="div"
-      sx={{ display: 'flex', gap: 1.5, py: 1.5, gridColumn: wide ? { md: 'span 2' } : undefined }}
-    >
+    <Box component="div" sx={{ display: 'flex', gap: 1.5, py: 1.5 }}>
       <Box sx={{ color: 'primary.main', pt: 0.25, display: 'flex' }} aria-hidden>
         {icon}
       </Box>
@@ -371,55 +365,15 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
         </Stack>
       </Box>
 
-      {/* Body: the game sheet as a strip of facts, then the summary as the main read. */}
-      <Stack spacing={{ xs: 3, md: 4 }}>
-        <Box
-          component="section"
-          aria-labelledby="catalog-information"
-          sx={(theme) => ({
-            ...panelSx(theme, theme.palette.secondary.main),
-            p: { xs: 2.5, md: 3 },
-          })}
-        >
-          <Typography
-            id="catalog-information"
-            variant="overline"
-            component="h2"
-            sx={{ fontWeight: 800, letterSpacing: 1.8, color: 'secondary.main' }}
-          >
-            {t.information}
-          </Typography>
-          <Box
-            component="dl"
-            sx={{
-              m: 0,
-              mt: 1,
-              display: 'grid',
-              columnGap: 3,
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, minmax(0, 1fr))',
-                md: 'repeat(6, minmax(0, 1fr))',
-              },
-            }}
-          >
-            <SheetRow icon={<EventIcon fontSize="small" />} label={t.releaseDate}>
-              {formatDate(game.releaseDate)}
-            </SheetRow>
-            <SheetRow icon={<SportsEsportsIcon fontSize="small" />} label={t.platforms} wide>
-              <Tags items={game.platforms.map((p) => p.name)} />
-            </SheetRow>
-            <SheetRow icon={<CategoryIcon fontSize="small" />} label={t.genres}>
-              <Tags items={genres} />
-            </SheetRow>
-            <SheetRow icon={<BusinessIcon fontSize="small" />} label={t.developers}>
-              {game.developers.join(', ') || t.none}
-            </SheetRow>
-            <SheetRow icon={<StorefrontIcon fontSize="small" />} label={t.publishers}>
-              {game.publishers.join(', ') || t.none}
-            </SheetRow>
-          </Box>
-        </Box>
+      {/* Body: summary as the main read, the game sheet as a column on the side. */}
+      <Box
+        sx={{
+          display: 'grid',
+          gap: { xs: 3, md: 4 },
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 340px' },
+          alignItems: 'start',
+        }}
+      >
         <Box
           component="section"
           aria-labelledby="catalog-summary"
@@ -457,7 +411,44 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
             </Typography>
           )}
         </Box>
-      </Stack>
+        <Box
+          component="section"
+          aria-labelledby="catalog-information"
+          sx={(theme) => ({
+            ...panelSx(theme, theme.palette.secondary.main),
+            p: { xs: 2.5, md: 3 },
+          })}
+        >
+          <Typography
+            id="catalog-information"
+            variant="overline"
+            component="h2"
+            sx={{ fontWeight: 800, letterSpacing: 1.8, color: 'secondary.main' }}
+          >
+            {t.information}
+          </Typography>
+          <Box
+            component="dl"
+            sx={{ m: 0, '& > div + div': { borderTop: 1, borderColor: 'divider' } }}
+          >
+            <SheetRow icon={<EventIcon fontSize="small" />} label={t.releaseDate}>
+              {formatDate(game.releaseDate)}
+            </SheetRow>
+            <SheetRow icon={<SportsEsportsIcon fontSize="small" />} label={t.platforms}>
+              <Tags items={game.platforms.map((p) => p.name)} />
+            </SheetRow>
+            <SheetRow icon={<CategoryIcon fontSize="small" />} label={t.genres}>
+              <Tags items={genres} />
+            </SheetRow>
+            <SheetRow icon={<BusinessIcon fontSize="small" />} label={t.developers}>
+              {game.developers.join(', ') || t.none}
+            </SheetRow>
+            <SheetRow icon={<StorefrontIcon fontSize="small" />} label={t.publishers}>
+              {game.publishers.join(', ') || t.none}
+            </SheetRow>
+          </Box>
+        </Box>
+      </Box>
 
       {adding ? (
         <AddToLibraryDialog
