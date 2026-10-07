@@ -270,9 +270,27 @@ nunca se puede eliminar.
 | `GET / PUT /api/library/:id/platinum`                                              | Platino                                                                            |
 | `GET / POST /api/library/:id/difficulties`, `PATCH / DELETE …/:did`, `PUT …/order` | Dificultades                                                                       |
 
-En el frontend, **Mis juegos** (`/games`) es la pantalla principal (búsqueda, filtros y orden en
-la URL) y `/games/:id` es el detalle de un juego, organizado en secciones: cabecera, Mi juego,
-Partidas, Sesiones, Platino, Dificultades y Notas.
+## Navegación (frontend)
+
+El header tiene el logo, el **buscador global del catálogo** y la navegación principal (Inicio,
+Mis juegos, Mi perfil); en mobile la navegación pasa a un menú lateral y el buscador queda visible.
+
+| Ruta                             | Pantalla                                                         |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `/`                              | Inicio: presentación y puntos de entrada (no es un dashboard)    |
+| `/catalog/:provider/:externalId` | Juego del catálogo ("este juego existe") con **+ Agregar juego** |
+| `/games`                         | Mis juegos: búsqueda, filtros y orden de la biblioteca personal  |
+| `/games/:id`                     | Mi juego: partidas, sesiones, platino, dificultades y notas      |
+| `/profile`                       | Mi perfil: email y cierre de sesión                              |
+
+Flujo para agregar un juego: buscador global → página del catálogo → **Agregar juego** → modal
+(plataforma entre las que informa el catálogo, estado inicial, fechas, dificultad, valoración) →
+se crea el UserGame con la partida #1 configurada → se abre "Mi juego". Los juegos manuales se
+agregan desde Mis juegos con el mismo modal y nunca aparecen en el catálogo.
+
+La página del catálogo usa `GET /api/catalog/games/:provider/:externalId`: si el juego ya fue
+importado responde desde la base (funciona aunque IGDB esté caído); si no, consulta IGDB **sin
+guardar nada**. Los juegos manuales no tienen ID externo, así que nunca son accesibles por esa ruta.
 
 ## Tests
 

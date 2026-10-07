@@ -118,3 +118,18 @@ decisiones técnicas que afectan el comportamiento.
     menor. El orden por defecto es "fecha de agregado", más reciente primero.
 40. **Filtros de la biblioteca:** se guardan en la URL (compartible y compatible con "atrás").
     La lista se devuelve completa (sin paginación): es una biblioteca personal.
+
+## Navegación y catálogo (2026-10-07)
+
+41. **Inicio propio:** `/` es una Home de presentación (sin estadísticas ni contenido de V2/V3);
+    Mis juegos pasa a `/games`. La Home sigue requiriendo sesión, como antes `/`.
+42. **Página del catálogo por proveedor + ID externo** (`/catalog/igdb/:externalId`): los
+    resultados de búsqueda no importados no tienen ID local y no se persisten al verlos (#14).
+    Los juegos manuales no tienen ID externo: no tienen página de catálogo ni aparecen en el
+    buscador global.
+43. **Agregar con configuración:** el modal define plataforma (solo las del catálogo; las ya
+    registradas aparecen deshabilitadas), estado inicial, fechas (finalización obligatoria si se
+    elige "Completado"), dificultad (de la lista por defecto; "Normal" preseleccionada) y
+    valoración opcional. Todo se crea en una sola transacción.
+44. **Juegos de catálogo desde Mis juegos:** elegir un resultado abre su página del catálogo
+    (un único camino para agregarlos). Los juegos manuales se agregan con el mismo modal.

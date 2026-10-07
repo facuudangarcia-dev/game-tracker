@@ -26,7 +26,8 @@ import { Playthrough } from './playthrough.entity';
 import { DifficultiesService } from './difficulties.service';
 import { toPlatinumDto } from './platinum.service';
 import { PlaytimeService } from './playtime.service';
-import { DifficultyKind } from './difficulty.entity';
+import { Difficulty, DifficultyKind } from './difficulty.entity';
+import { assertValidPlaythroughDates } from './playthrough-rules';
 import { UserGameAccess, userGameNotFound } from './user-game-access.service';
 import { UserGame } from './user-game.entity';
 
@@ -60,6 +61,14 @@ export class LibraryService {
       );
     }
 
+    // Initial settings of playthrough #1 are validated before importing anything.
+    const initial = {
+      status: dto.initialPlaythrough?.status ?? PlayStatus.Pending,
+      startDate: dto.initialPlaythrough?.startDate ?? null,
+      completionDate: dto.initialPlaythrough?.completionDate ?? null,
+    };
+    assertValidPlaythroughDates(initial);
+
     const platform = await this.platforms.findOneBy({ id: dto.platformId });
     if (!platform) {
       throw apiError(HttpStatus.BAD_REQUEST, LibraryErrorCode.PlatformNotFound, 'Unknown platform');
@@ -91,21 +100,34 @@ export class LibraryService {
           gameId = manualGame.id;
         }
 
-        const userGame = await manager
-          .getRepository(UserGame)
-          .save(
-            manager.getRepository(UserGame).create({ userId, gameId, platformId: platform.id }),
-          );
-        // Every UserGame starts with playthrough #1 (pending, manual time).
+        const userGame = await manager.getRepository(UserGame).save(
+          manager.getRepository(UserGame).create({
+            userId,
+            gameId,
+            platformId: platform.id,
+            rating: dto.rating ?? null,
+          }),
+        );
+        await this.difficulties.createDefaults(manager, userGame.id, DifficultyKind.Playthrough);
+        await this.difficulties.createDefaults(manager, userGame.id, DifficultyKind.Platinum);
+        const difficultyName = dto.initialPlaythrough?.difficulty;
+        const difficulty = difficultyName
+          ? await manager.getRepository(Difficulty).findOneByOrFail({
+              userGameId: userGame.id,
+              kind: DifficultyKind.Playthrough,
+              name: difficultyName,
+            })
+          : null;
+        // Every UserGame starts with playthrough #1 (manual time), with the
+        // settings chosen when adding the game (pending by default).
         await manager.getRepository(Playthrough).insert({
           userGameId: userGame.id,
           number: 1,
-          status: PlayStatus.Pending,
+          ...initial,
+          difficultyId: difficulty?.id ?? null,
           timeMode: TimeMode.Manual,
           manualTimeMinutes: 0,
         });
-        await this.difficulties.createDefaults(manager, userGame.id, DifficultyKind.Playthrough);
-        await this.difficulties.createDefaults(manager, userGame.id, DifficultyKind.Platinum);
         return userGame.id;
       });
     } catch (error) {

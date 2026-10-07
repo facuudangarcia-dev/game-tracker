@@ -19,112 +19,94 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { type FormEvent, useState } from 'react';
 import { messages } from '../../i18n/messages';
-import { getApiErrorMessage } from '../../lib/api/errors';
 import { formatYear } from '../../lib/format';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
 import { GameCover } from './GameCover';
-import { SEARCH_MIN_LENGTH, useAddUserGame, useCatalogSearch, usePlatforms } from './queries';
-import type { AddUserGameInput, CatalogSearchResult, Platform, UserGameDetails } from './types';
+import { SEARCH_MIN_LENGTH, useCatalogSearch, usePlatforms } from './queries';
+import type { CatalogSearchResult, GameSource, Platform } from './types';
 import { GAME_NAME_MAX_LENGTH } from './validation';
 
 const t = messages.addGame;
 
 type Mode = 'catalog' | 'manual';
 
+/** What to register, handed to the settings dialog (AddToLibraryDialog). */
+export interface AddGameConfig {
+  gameName: string;
+  source: GameSource;
+  platforms: Platform[];
+  isManual: boolean;
+}
+
 interface AddGameDialogProps {
   open: boolean;
   onClose: () => void;
-  onAdded: (userGame: UserGameDetails) => void;
+  /** Catalog games are added from their catalog page (single path). */
+  onOpenCatalogGame: (result: CatalogSearchResult) => void;
+  /** Manual games (new or own existing ones) go straight to the settings dialog. */
+  onConfigure: (config: AddGameConfig) => void;
 }
 
 /**
- * Adds a game to the library: either a catalog search result (imported by the
- * backend if needed) or a new private manual game, always on one platform.
+ * Entry point of "Agregar juego" in Mis juegos: pick a catalog game (opens its
+ * catalog page) or a manual game (private, any platform).
  */
-export function AddGameDialog({ open, onClose, onAdded }: AddGameDialogProps) {
+export function AddGameDialog({
+  open,
+  onClose,
+  onOpenCatalogGame,
+  onConfigure,
+}: AddGameDialogProps) {
   const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
-  const addGame = useAddUserGame();
   const platforms = usePlatforms();
-
   const [mode, setMode] = useState<Mode>('catalog');
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<CatalogSearchResult | null>(null);
   const [manualName, setManualName] = useState('');
-  const [platformId, setPlatformId] = useState('');
   const [nameError, setNameError] = useState<string>();
 
   const debouncedQuery = useDebouncedValue(query, 300);
   const search = useCatalogSearch(mode === 'catalog' ? debouncedQuery : '');
-
-  // Catalog games: only the platforms the catalog reports. Manual games: any platform.
-  const platformOptions: Platform[] =
-    mode === 'manual' || selected?.isManual ? (platforms.data ?? []) : (selected?.platforms ?? []);
-
-  const reset = () => {
-    setMode('catalog');
-    setQuery('');
-    setSelected(null);
-    setManualName('');
-    setPlatformId('');
-    setNameError(undefined);
-    addGame.reset();
-  };
+  const allPlatforms = platforms.data ?? [];
 
   const close = () => {
-    reset();
+    setMode('catalog');
+    setQuery('');
+    setManualName('');
+    setNameError(undefined);
     onClose();
   };
 
   const selectResult = (result: CatalogSearchResult) => {
-    setSelected(result);
-    const options = result.isManual ? (platforms.data ?? []) : result.platforms;
-    setPlatformId(options.length === 1 ? options[0].id : '');
-    addGame.reset();
-  };
-
-  const buildInput = (): AddUserGameInput | null => {
-    if (!platformId) {
-      return null;
-    }
-    if (mode === 'manual') {
-      const name = manualName.trim();
-      if (!name) {
-        setNameError(t.nameRequired);
-        return null;
-      }
-      return { platformId, manualGame: { name } };
-    }
-    if (!selected) {
-      return null;
-    }
-    if (selected.gameId) {
-      return { platformId, gameId: selected.gameId };
-    }
-    return {
-      platformId,
-      catalog: { provider: selected.provider ?? '', externalId: selected.externalId ?? '' },
-    };
-  };
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    const input = buildInput();
-    if (input) {
-      addGame.mutate(input, {
-        onSuccess: (userGame) => {
-          reset();
-          onAdded(userGame);
-        },
+    if (result.isManual && result.gameId) {
+      onConfigure({
+        gameName: result.name,
+        source: { gameId: result.gameId },
+        platforms: allPlatforms,
+        isManual: true,
       });
+    } else {
+      onOpenCatalogGame(result);
     }
   };
 
-  const canSubmit =
-    Boolean(platformId) && (mode === 'manual' ? manualName.trim() !== '' : selected !== null);
+  const continueManual = (event: FormEvent) => {
+    event.preventDefault();
+    const name = manualName.trim();
+    if (!name) {
+      setNameError(t.nameRequired);
+      return;
+    }
+    onConfigure({
+      gameName: name,
+      source: { manualGame: { name } },
+      platforms: allPlatforms,
+      isManual: true,
+    });
+  };
 
   return (
     <Dialog open={open} onClose={close} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <form onSubmit={handleSubmit} noValidate>
+      <form onSubmit={continueManual} noValidate>
         <DialogTitle>{t.title}</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ pt: 1 }}>
@@ -135,14 +117,7 @@ export function AddGameDialog({ open, onClose, onAdded }: AddGameDialogProps) {
               color="primary"
               aria-label={t.modeLabel}
               value={mode}
-              onChange={(_e, value: Mode | null) => {
-                if (value) {
-                  setMode(value);
-                  setPlatformId('');
-                  setSelected(null);
-                  addGame.reset();
-                }
-              }}
+              onChange={(_e, value: Mode | null) => value && setMode(value)}
             >
               <ToggleButton value="catalog">{t.catalogMode}</ToggleButton>
               <ToggleButton value="manual">{t.manualMode}</ToggleButton>
@@ -156,15 +131,11 @@ export function AddGameDialog({ open, onClose, onAdded }: AddGameDialogProps) {
                   autoFocus
                   fullWidth
                   value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setSelected(null);
-                    setPlatformId('');
-                  }}
+                  onChange={(e) => setQuery(e.target.value)}
                   helperText={
                     query.trim().length < SEARCH_MIN_LENGTH
                       ? t.searchHint(SEARCH_MIN_LENGTH)
-                      : undefined
+                      : t.openCatalogHint
                   }
                 />
                 <SearchResults
@@ -172,73 +143,34 @@ export function AddGameDialog({ open, onClose, onAdded }: AddGameDialogProps) {
                   isError={search.isError}
                   data={search.data}
                   enabled={debouncedQuery.trim().length >= SEARCH_MIN_LENGTH}
-                  selected={selected}
                   onSelect={selectResult}
                 />
               </>
             ) : (
-              <>
-                <TextField
-                  label={t.nameLabel}
-                  required
-                  autoFocus
-                  fullWidth
-                  value={manualName}
-                  onChange={(e) => {
-                    setManualName(e.target.value);
-                    setNameError(undefined);
-                  }}
-                  error={Boolean(nameError)}
-                  helperText={nameError ?? t.manualHelp}
-                  slotProps={{ htmlInput: { maxLength: GAME_NAME_MAX_LENGTH } }}
-                />
-              </>
+              <TextField
+                label={t.nameLabel}
+                required
+                autoFocus
+                fullWidth
+                value={manualName}
+                onChange={(e) => {
+                  setManualName(e.target.value);
+                  setNameError(undefined);
+                }}
+                error={Boolean(nameError)}
+                helperText={nameError ?? t.manualHelp}
+                slotProps={{ htmlInput: { maxLength: GAME_NAME_MAX_LENGTH } }}
+              />
             )}
-
-            {mode === 'manual' || selected ? (
-              selected && !selected.isManual && selected.platforms.length === 0 ? (
-                <Alert severity="info" variant="outlined">
-                  {t.noPlatforms}
-                </Alert>
-              ) : (
-                <TextField
-                  select
-                  label={t.platformLabel}
-                  required
-                  fullWidth
-                  value={platformId}
-                  onChange={(e) => setPlatformId(e.target.value)}
-                  slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-                >
-                  <option value="" disabled>
-                    {t.choosePlatform}
-                  </option>
-                  {platformOptions.map((platform) => (
-                    <option key={platform.id} value={platform.id}>
-                      {platform.name}
-                    </option>
-                  ))}
-                </TextField>
-              )
-            ) : null}
-
-            {addGame.isError ? (
-              <Alert severity="error" variant="outlined">
-                {getApiErrorMessage(addGame.error, messages.library.serverErrors)}
-              </Alert>
-            ) : null}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={close}>{messages.common.cancel}</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={!canSubmit}
-            loading={addGame.isPending}
-          >
-            {t.submit}
-          </Button>
+          {mode === 'manual' ? (
+            <Button type="submit" variant="contained" disabled={manualName.trim() === ''}>
+              {t.continue}
+            </Button>
+          ) : null}
         </DialogActions>
       </form>
     </Dialog>
@@ -250,7 +182,6 @@ interface SearchResultsProps {
   isFetching: boolean;
   isError: boolean;
   data: { results: CatalogSearchResult[]; catalogAvailable: boolean } | undefined;
-  selected: CatalogSearchResult | null;
   onSelect: (result: CatalogSearchResult) => void;
 }
 
@@ -258,14 +189,7 @@ function resultKey(result: CatalogSearchResult): string {
   return result.gameId ?? `${result.provider}:${result.externalId}`;
 }
 
-function SearchResults({
-  enabled,
-  isFetching,
-  isError,
-  data,
-  selected,
-  onSelect,
-}: SearchResultsProps) {
+function SearchResults({ enabled, isFetching, isError, data, onSelect }: SearchResultsProps) {
   if (!enabled) {
     return null;
   }
@@ -308,7 +232,6 @@ function SearchResults({
             return (
               <ListItemButton
                 key={resultKey(result)}
-                selected={selected !== null && resultKey(selected) === resultKey(result)}
                 onClick={() => onSelect(result)}
                 sx={{ gap: 1.5, borderRadius: 1 }}
               >

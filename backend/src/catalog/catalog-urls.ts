@@ -10,3 +10,8 @@ export function assetUrl(key: string): string {
 export function catalogThumbnailUrl(provider: CatalogProvider, ref: string): string {
   return `/${API_PREFIX}/catalog/${provider}/images/${ref}`;
 }
+
+/** Larger proxied cover for the catalog detail page (not stored either). */
+export function catalogCoverUrl(provider: CatalogProvider, ref: string): string {
+  return `${catalogThumbnailUrl(provider, ref)}?size=cover`;
+}

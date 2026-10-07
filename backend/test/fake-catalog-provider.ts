@@ -3,6 +3,7 @@ import {
   type CatalogGameDetails,
   type CatalogGameSummary,
   type CatalogImage,
+  type CatalogImageVariant,
   type CatalogTaxonomyEntry,
   CatalogUnavailableError,
   type GameCatalogProvider,
@@ -17,6 +18,7 @@ export class FakeCatalogProvider implements GameCatalogProvider {
   failing = false;
   failingImages = false;
   calls = { search: 0, getGame: 0, fetchImage: 0 };
+  imageVariants: CatalogImageVariant[] = [];
 
   add(game: Partial<CatalogGameDetails> & { externalId: string; name: string }): void {
     this.games.set(game.externalId, {
@@ -37,6 +39,7 @@ export class FakeCatalogProvider implements GameCatalogProvider {
     this.failing = false;
     this.failingImages = false;
     this.calls = { search: 0, getGame: 0, fetchImage: 0 };
+    this.imageVariants = [];
   }
 
   searchGames(query: string, limit: number): Promise<CatalogGameSummary[]> {
@@ -67,8 +70,9 @@ export class FakeCatalogProvider implements GameCatalogProvider {
     return /^[a-z0-9]+$/.test(ref);
   }
 
-  fetchImage(): Promise<CatalogImage> {
+  fetchImage(_ref: string, variant: CatalogImageVariant): Promise<CatalogImage> {
     this.calls.fetchImage++;
+    this.imageVariants.push(variant);
     if (this.failing || this.failingImages) {
       return Promise.reject(new CatalogUnavailableError('fake image failure'));
     }

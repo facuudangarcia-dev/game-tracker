@@ -4,6 +4,7 @@ import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
+import { CatalogDetailsService } from '../src/catalog/catalog-details.service';
 import { CatalogSearchService } from '../src/catalog/catalog-search.service';
 import { GAME_CATALOG_PROVIDER } from '../src/catalog/game-catalog-provider';
 import { FakeCatalogProvider } from './fake-catalog-provider';
@@ -50,6 +51,7 @@ export async function createTestApp(): Promise<TestApp> {
     await dataSource.query(`DELETE FROM "genres" WHERE "slug" LIKE 'igdb-%'`);
     catalog.reset();
     app.get(CatalogSearchService).clearCache();
+    app.get(CatalogDetailsService).clearCache();
   };
 
   return { app, dataSource, catalog, resetDatabase };

@@ -48,7 +48,7 @@ describe('authentication flow', () => {
       mockApi({ 'GET /health': healthOk, 'GET /auth/me': () => ({ status: 200, body: testUser }) });
       const { router } = renderRoute('/login');
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/games'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
     });
   });
 
@@ -134,7 +134,7 @@ describe('authentication flow', () => {
       await fillCredentials('player@example.com', password);
       await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/games'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/'));
       expect(await screen.findByRole('button', { name: 'Menú de usuario' })).toBeInTheDocument();
     });
   });

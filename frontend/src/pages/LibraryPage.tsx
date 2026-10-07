@@ -9,7 +9,9 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { type ReactNode, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { AddGameDialog } from '../features/library/AddGameDialog';
+import { catalogGamePath } from '../features/catalog/queries';
+import { type AddGameConfig, AddGameDialog } from '../features/library/AddGameDialog';
+import { AddToLibraryDialog } from '../features/library/AddToLibraryDialog';
 import { LibraryCard } from '../features/library/LibraryCard';
 import {
   filtersFromParams,
@@ -44,6 +46,7 @@ export function LibraryPage() {
   const filters = filtersFromParams(params);
   const library = useLibrary(filters);
   const [adding, setAdding] = useState(false);
+  const [configuring, setConfiguring] = useState<AddGameConfig | null>(null);
   const navigate = useNavigate();
 
   const setFilters = (next: LibraryFilters) =>
@@ -132,11 +135,25 @@ export function LibraryPage() {
       <AddGameDialog
         open={adding}
         onClose={() => setAdding(false)}
-        onAdded={(userGame) => {
+        onOpenCatalogGame={(result) => {
           setAdding(false);
-          void navigate(`/games/${userGame.id}`);
+          void navigate(catalogGamePath(result.provider ?? '', result.externalId ?? ''));
+        }}
+        onConfigure={(config) => {
+          setAdding(false);
+          setConfiguring(config);
         }}
       />
+      {configuring ? (
+        <AddToLibraryDialog
+          {...configuring}
+          onClose={() => setConfiguring(null)}
+          onAdded={(userGame) => {
+            setConfiguring(null);
+            void navigate(`/games/${userGame.id}`);
+          }}
+        />
+      ) : null}
     </Stack>
   );
 }

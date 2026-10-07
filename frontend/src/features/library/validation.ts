@@ -13,6 +13,8 @@ export const NOTE_MAX_LENGTH = 5000;
 export const RATING_MIN = 10;
 export const RATING_MAX = 100;
 export const MAX_MINUTES = 1_000_000;
+/** Initial difficulty list of every new game (backend DEFAULT_DIFFICULTY_NAMES). */
+export const DEFAULT_DIFFICULTY_NAMES = ['Muy fácil', 'Fácil', 'Normal', 'Difícil', 'Muy difícil'];
 
 const v = messages.validation;
 

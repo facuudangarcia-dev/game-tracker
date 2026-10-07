@@ -15,6 +15,33 @@ export class GenresService {
   }
 
   /**
+   * Read-only mapping for display: known genres use our (Spanish) name,
+   * unknown ones keep the provider name. Nothing is created.
+   */
+  async describe(
+    provider: CatalogProvider,
+    refs: CatalogGenreRef[],
+  ): Promise<{ id: string | null; name: string }[]> {
+    if (refs.length === 0) {
+      return [];
+    }
+    const rows = await this.genres.manager.getRepository(GenreExternalId).find({
+      where: { provider, externalId: In(refs.map((r) => r.externalId)) },
+      relations: { genre: true },
+    });
+    const known = new Map(rows.map((row) => [row.externalId, row.genre]));
+    const described = new Map<string, { id: string | null; name: string }>();
+    for (const ref of refs) {
+      const genre = known.get(ref.externalId);
+      const item = genre ? { id: genre.id, name: genre.name } : { id: null, name: ref.name };
+      if (!described.has(item.name)) {
+        described.set(item.name, item);
+      }
+    }
+    return [...described.values()];
+  }
+
+  /**
    * Returns our genres for a provider's genre refs. Unknown genres are created
    * with the provider's name until translated (decision #25). Safe under
    * concurrent imports (ON CONFLICT DO NOTHING + re-read).

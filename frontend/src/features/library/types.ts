@@ -131,9 +131,42 @@ export interface LibraryFilters {
   order?: SortOrder;
 }
 
-/** Exactly one game source (catalog result, existing game or new manual game). */
-export type AddUserGameInput = { platformId: string } & (
+/** Settings of playthrough #1 chosen when adding a game. */
+export interface InitialPlaythroughInput {
+  status: PlayStatus;
+  startDate?: string | null;
+  completionDate?: string | null;
+  /** One of the default difficulty names. */
+  difficulty?: string | null;
+}
+
+/** Game source: catalog game (imported if needed), existing game or new manual game. */
+export type GameSource =
   | { gameId: string }
   | { catalog: { provider: string; externalId: string } }
-  | { manualGame: { name: string } }
-);
+  | { manualGame: { name: string } };
+
+/** Exactly one game source, a platform and optional initial settings. */
+export type AddUserGameInput = {
+  platformId: string;
+  initialPlaythrough?: InitialPlaythroughInput;
+  rating?: number | null;
+} & GameSource;
+
+/** Public view of a catalog game ("this game exists"). */
+export interface CatalogGame {
+  /** Local id when already imported. */
+  gameId: string | null;
+  provider: string;
+  externalId: string;
+  name: string;
+  summary: string | null;
+  releaseDate: string | null;
+  coverUrl: string | null;
+  platforms: Platform[];
+  genres: { id: string | null; name: string }[];
+  developers: string[];
+  publishers: string[];
+  /** The current user's UserGames of this game. */
+  libraryEntries: { userGameId: string; platform: Platform }[];
+}

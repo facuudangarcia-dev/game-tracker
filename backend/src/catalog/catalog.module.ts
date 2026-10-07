@@ -6,6 +6,7 @@ import type { EnvironmentVariables } from '../config/env.validation';
 import { Game } from '../games/game.entity';
 import { GenresModule } from '../genres/genres.module';
 import { PlatformsModule } from '../platforms/platforms.module';
+import { CatalogDetailsService } from './catalog-details.service';
 import { CatalogImportService } from './catalog-import.service';
 import { CatalogProvider } from './catalog-provider';
 import { CatalogSearchService } from './catalog-search.service';
@@ -42,6 +43,7 @@ function createCatalogProvider(
     { provide: GAME_CATALOG_PROVIDER, inject: [ConfigService], useFactory: createCatalogProvider },
     CatalogSearchService,
     CatalogImportService,
+    CatalogDetailsService,
   ],
   exports: [GAME_CATALOG_PROVIDER, CatalogImportService],
 })

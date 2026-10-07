@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Inject,
@@ -15,6 +16,8 @@ import { IsString, MaxLength, MinLength } from 'class-validator';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators';
 import type { User } from '../users/user.entity';
+import { CatalogDetailsService, type CatalogGameDto } from './catalog-details.service';
+import { EXTERNAL_ID_MAX_LENGTH } from './catalog-provider';
 import { CatalogSearchService, type CatalogSearchResponseDto } from './catalog-search.service';
 import {
   CatalogUnavailableError,
@@ -38,6 +41,7 @@ export class CatalogController {
   constructor(
     private readonly search: CatalogSearchService,
     @Inject(GAME_CATALOG_PROVIDER) private readonly catalog: GameCatalogProvider,
+    private readonly details: CatalogDetailsService,
   ) {}
 
   /** Search-as-you-type friendly limit, still protecting the provider's quota. */
@@ -51,18 +55,38 @@ export class CatalogController {
     return this.search.search(q, user.id);
   }
 
-  /** Thumbnail proxy for not-yet-imported results (decision #30). Not stored. */
+  /** Public view of a catalog game ("this game exists"); never a manual game. */
+  @Get('games/:provider/:externalId')
+  getGame(
+    @CurrentUser() user: User,
+    @Param('provider') provider: string,
+    @Param('externalId') externalId: string,
+  ): Promise<CatalogGameDto> {
+    if (externalId.length > EXTERNAL_ID_MAX_LENGTH) {
+      throw new NotFoundException();
+    }
+    return this.details.get(user.id, provider, externalId);
+  }
+
+  /**
+   * Image proxy for not-yet-imported games (decision #30): thumbnail by default,
+   * `?size=cover` for the catalog detail page. Never stored.
+   */
   @Get(':provider/images/:ref')
   async thumbnail(
     @Param('provider') provider: string,
     @Param('ref') ref: string,
+    @Query('size') size: string | undefined,
     @Res() response: Response,
   ): Promise<void> {
+    if (size !== undefined && size !== 'thumbnail' && size !== 'cover') {
+      throw new BadRequestException('size must be thumbnail or cover');
+    }
     if (provider !== String(this.catalog.id) || !this.catalog.isValidImageRef(ref)) {
       throw new NotFoundException();
     }
     try {
-      const image = await this.catalog.fetchImage(ref, 'thumbnail');
+      const image = await this.catalog.fetchImage(ref, size === 'cover' ? 'cover' : 'thumbnail');
       response
         .status(200)
         .type(image.contentType)

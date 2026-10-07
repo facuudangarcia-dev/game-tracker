@@ -87,7 +87,7 @@ describe('library', () => {
   });
 
   describe('adding a game', () => {
-    it('adds a catalog game offering only the platforms the catalog reports', async () => {
+    it('opens the catalog page of a catalog result instead of adding it directly', async () => {
       const { calls } = mockApi({
         'GET /auth/me': me,
         'GET /platforms': () => ({ status: 200, body: [ps4, pc, gb] }),
@@ -95,81 +95,71 @@ describe('library', () => {
           status: 200,
           body: { results: [witcher], catalogAvailable: true },
         }),
-        'POST /library': () => created('The Witcher 3: Wild Hunt'),
+        'GET /catalog/games/igdb/1942': () => ({ status: 404, body: {} }),
       });
       const { dialog, router } = await openDialog();
 
       await userEvent.type(within(dialog).getByLabelText('Buscar juego'), 'witcher');
       await userEvent.click(await within(dialog).findByText('The Witcher 3: Wild Hunt'));
 
-      const platformSelect = within(dialog).getByLabelText(/Plataforma/);
-      const options = within(platformSelect)
-        .getAllByRole('option')
-        .map((o) => o.textContent);
-      expect(options).toEqual(['Elegí una plataforma', 'PlayStation 4', 'PC']);
-
-      await userEvent.selectOptions(platformSelect, 'PlayStation 4');
-      await userEvent.click(
-        within(dialog).getByRole('button', { name: 'Agregar a mi biblioteca' }),
-      );
-
-      // The new game opens in its detail page.
-      await waitFor(() => expect(router.state.location.pathname).toBe('/games/ug-1'));
-      expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
-        platformId: ps4.id,
-        catalog: { provider: 'igdb', externalId: '1942' },
-      });
+      await waitFor(() => expect(router.state.location.pathname).toBe('/catalog/igdb/1942'));
+      expect(calls.some((c) => c.method === 'POST')).toBe(false);
     });
 
-    it('reuses an already imported game by its id', async () => {
-      const { calls } = mockApi({
+    it('also opens the catalog page for an already imported game', async () => {
+      mockApi({
         'GET /auth/me': me,
         'GET /platforms': () => ({ status: 200, body: [ps4, pc, gb] }),
         'GET /catalog/search?q=witcher': () => ({
           status: 200,
           body: { results: [{ ...witcher, gameId: 'g-9' }], catalogAvailable: true },
         }),
-        'POST /library': () => created(),
+        'GET /catalog/games/igdb/1942': () => ({ status: 404, body: {} }),
       });
-      const { dialog } = await openDialog();
+      const { dialog, router } = await openDialog();
 
       await userEvent.type(within(dialog).getByLabelText('Buscar juego'), 'witcher');
       await userEvent.click(await within(dialog).findByText('The Witcher 3: Wild Hunt'));
-      await userEvent.selectOptions(within(dialog).getByLabelText(/Plataforma/), 'PC');
-      await userEvent.click(
-        within(dialog).getByRole('button', { name: 'Agregar a mi biblioteca' }),
-      );
 
-      await waitFor(() =>
-        expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
-          platformId: pc.id,
-          gameId: 'g-9',
-        }),
-      );
+      await waitFor(() => expect(router.state.location.pathname).toBe('/catalog/igdb/1942'));
     });
 
-    it('creates a manual game on any platform', async () => {
+    it('creates a manual game on any platform through the settings dialog', async () => {
       const { calls } = mockApi({
         'GET /auth/me': me,
         'GET /platforms': () => ({ status: 200, body: [ps4, pc, gb] }),
         'POST /library': () => created('Mi homebrew'),
+        'GET /library/ug-1': () => created('Mi homebrew'),
       });
-      const { dialog } = await openDialog();
+      const { dialog, router } = await openDialog();
 
       await userEvent.click(within(dialog).getByRole('button', { name: 'Juego manual' }));
       await userEvent.type(within(dialog).getByLabelText(/Nombre del juego/), '  Mi homebrew ');
       expect(within(dialog).getByText(/solo vos podrás verlo/)).toBeInTheDocument();
-      await userEvent.selectOptions(within(dialog).getByLabelText(/Plataforma/), 'Game Boy');
-      await userEvent.click(
-        within(dialog).getByRole('button', { name: 'Agregar a mi biblioteca' }),
-      );
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Continuar' }));
+
+      const settings = await screen.findByRole('dialog', { name: 'Agregar juego' });
+      const platformOptions = within(within(settings).getByLabelText(/Plataforma/))
+        .getAllByRole('option')
+        .map((o) => o.textContent);
+      expect(platformOptions).toEqual(['Elegí una plataforma', 'PlayStation 4', 'PC', 'Game Boy']);
+      await userEvent.selectOptions(within(settings).getByLabelText(/Plataforma/), 'Game Boy');
+      await userEvent.click(within(settings).getByRole('button', { name: 'Agregar juego' }));
 
       await waitFor(() =>
         expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
           platformId: gb.id,
           manualGame: { name: 'Mi homebrew' },
+          initialPlaythrough: {
+            status: 'PENDING',
+            startDate: null,
+            completionDate: null,
+            difficulty: 'Normal',
+          },
+          rating: null,
         }),
       );
+      await waitFor(() => expect(router.state.location.pathname).toBe('/games/ug-1'));
     });
 
     it('explains when the game is already in the library on that platform', async () => {
@@ -182,13 +172,13 @@ describe('library', () => {
 
       await userEvent.click(within(dialog).getByRole('button', { name: 'Juego manual' }));
       await userEvent.type(within(dialog).getByLabelText(/Nombre del juego/), 'Dup');
-      await userEvent.selectOptions(within(dialog).getByLabelText(/Plataforma/), 'PC');
-      await userEvent.click(
-        within(dialog).getByRole('button', { name: 'Agregar a mi biblioteca' }),
-      );
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Continuar' }));
+      const settings = await screen.findByRole('dialog', { name: 'Agregar juego' });
+      await userEvent.selectOptions(within(settings).getByLabelText(/Plataforma/), 'PC');
+      await userEvent.click(within(settings).getByRole('button', { name: 'Agregar juego' }));
 
       expect(
-        await within(dialog).findByText('Ya tenés este juego registrado en esa plataforma.'),
+        await within(settings).findByText('Ya tenés este juego registrado en esa plataforma.'),
       ).toBeInTheDocument();
     });
 
@@ -208,9 +198,6 @@ describe('library', () => {
       expect(
         await within(dialog).findByText(/El catálogo externo no está disponible/),
       ).toBeInTheDocument();
-      expect(
-        within(dialog).getByRole('button', { name: 'Agregar a mi biblioteca' }),
-      ).toBeDisabled();
     });
   });
 });
