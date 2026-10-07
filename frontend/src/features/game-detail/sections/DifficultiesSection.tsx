@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import TuneIcon from '@mui/icons-material/Tune';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
@@ -18,6 +19,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { type FormEvent, useState } from 'react';
 import { Section } from '../../../components/Section';
+import { VIOLET } from '../../../theme/brand';
 import { messages } from '../../../i18n/messages';
 import { getApiErrorMessage } from '../../../lib/api/errors';
 import type { Difficulty, DifficultyKind, UserGameDetails } from '../../library/types';
@@ -131,14 +133,17 @@ function DifficultyList({ userGameId, kind, title, difficulties, onAction }: Dif
           ))}
         </List>
       )}
-      <Stack component="form" direction="row" spacing={1} onSubmit={add} sx={{ mt: 2 }}>
+      <Stack component="form" spacing={1} onSubmit={add} sx={{ mt: 2, alignItems: 'flex-end' }}>
         <TextField
           size="small"
-          label={t.newName(title)}
+          fullWidth
+          label={t.newLabel}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          sx={{ flex: 1 }}
-          slotProps={{ htmlInput: { maxLength: DIFFICULTY_NAME_MAX_LENGTH } }}
+          slotProps={{
+            // The visible label is short; assistive tech gets which list it belongs to.
+            htmlInput: { maxLength: DIFFICULTY_NAME_MAX_LENGTH, 'aria-label': t.newName(title) },
+          }}
         />
         <Button
           type="submit"
@@ -168,9 +173,14 @@ export function DifficultiesSection({
 }) {
   const byKind = (kind: DifficultyKind) => userGame.difficulties.filter((d) => d.kind === kind);
   return (
-    <Section id={DIFFICULTIES_SECTION_ID} title={messages.detail.sections.difficulties}>
-      <Grid container spacing={4}>
-        <Grid size={{ xs: 12, md: 6 }}>
+    <Section
+      id={DIFFICULTIES_SECTION_ID}
+      title={messages.detail.sections.difficulties}
+      icon={<TuneIcon />}
+      accent={() => VIOLET}
+    >
+      <Grid container spacing={3}>
+        <Grid size={12}>
           <DifficultyList
             userGameId={userGame.id}
             kind="PLAYTHROUGH"
@@ -179,7 +189,7 @@ export function DifficultiesSection({
             onAction={onAction}
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={12}>
           <DifficultyList
             userGameId={userGame.id}
             kind="PLATINUM"

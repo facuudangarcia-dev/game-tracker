@@ -482,6 +482,7 @@ export const es = {
     },
     platinum: {
       achieved: 'Platino conseguido',
+      achievedShort: 'Conseguido',
       notAchieved: 'Sin platino',
       date: 'Fecha del platino',
       time: 'Tiempo del platino',
@@ -495,6 +496,7 @@ export const es = {
       platinumList: 'Dificultades del platino',
       add: 'Agregar',
       newName: (list: string) => `Nueva dificultad (${list})`,
+      newLabel: 'Nueva dificultad',
       rename: (name: string) => `Renombrar ${name}`,
       renameTitle: 'Renombrar dificultad',
       name: 'Nombre',

@@ -295,11 +295,7 @@ export function LibraryPage() {
       </Box>
 
       {/* Search: wide and centered, the main way into the library. */}
-      <Stack
-        direction="row"
-        spacing={1.5}
-        sx={{ maxWidth: 760, width: '100%', mx: 'auto', alignItems: 'center' }}
-      >
+      <Stack direction="row" spacing={1.5} sx={{ width: '100%', alignItems: 'center' }}>
         <LibrarySearch key={searchKey} filters={filters} onChange={setFilters} />
         {isMobile ? (
           <Button

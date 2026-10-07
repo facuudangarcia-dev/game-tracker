@@ -41,6 +41,9 @@ export interface GameSummary {
 }
 
 export interface GameDetails extends GameSummary {
+  /** Catalog reference; null for manual games. */
+  provider: string | null;
+  externalId: string | null;
   slug: string | null;
   summary: string | null;
   releaseDate: string | null;

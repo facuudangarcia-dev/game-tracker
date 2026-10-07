@@ -175,6 +175,18 @@ describe('Catalog exploration and configured add (e2e)', () => {
       ]);
     });
 
+    it('exposes the catalog reference of a library game (null for manual games)', async () => {
+      const catalogGame = (await addSpiderMan(alice, 'ps5').expect(201)).body as UserGameDetailsDto;
+      const manual = (
+        await as(app, alice)
+          .post('/api/library', { manualGame: { name: 'Homebrew' }, platformId: platformIds.pc })
+          .expect(201)
+      ).body as UserGameDetailsDto;
+
+      expect(catalogGame.game).toMatchObject({ provider: 'igdb', externalId: '1001' });
+      expect(manual.game).toMatchObject({ provider: null, externalId: null });
+    });
+
     it("shows the user's progress on each library entry", async () => {
       const added = (
         await addSpiderMan(alice, 'ps5', {

@@ -1,5 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
 import Snackbar from '@mui/material/Snackbar';
@@ -101,15 +102,30 @@ export function GameDetailPage() {
 
   const userGame = query.data;
   return (
-    <Stack spacing={3}>
+    <Stack spacing={{ xs: 3, md: 4 }}>
       {backLink}
       <DetailHeader userGame={userGame} onAction={setAction} />
       <MyGameSection userGame={userGame} />
-      <PlaythroughsSection userGame={userGame} onAction={setAction} />
-      <SessionsSection userGame={userGame} onAction={setAction} />
-      <PlatinumSection userGame={userGame} onAction={setAction} />
-      <DifficultiesSection userGame={userGame} onAction={setAction} />
-      <NotesSection userGame={userGame} onAction={setAction} />
+      {/* Your run (playthroughs, sessions, notes) as the main column; platinum and
+          difficulties on the side. */}
+      <Box
+        sx={{
+          display: 'grid',
+          gap: { xs: 3, md: 4 },
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 360px' },
+          alignItems: 'start',
+        }}
+      >
+        <Stack spacing={{ xs: 3, md: 4 }} sx={{ minWidth: 0 }}>
+          <PlaythroughsSection userGame={userGame} onAction={setAction} />
+          <SessionsSection userGame={userGame} onAction={setAction} />
+          <NotesSection userGame={userGame} onAction={setAction} />
+        </Stack>
+        <Stack spacing={{ xs: 3, md: 4 }} sx={{ minWidth: 0 }}>
+          <PlatinumSection userGame={userGame} onAction={setAction} />
+          <DifficultiesSection userGame={userGame} onAction={setAction} />
+        </Stack>
+      </Box>
 
       <DetailDialogs userGame={userGame} action={action} onClose={close} onSaved={saved} />
       <Snackbar

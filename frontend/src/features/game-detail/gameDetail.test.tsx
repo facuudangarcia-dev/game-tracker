@@ -38,6 +38,8 @@ function buildGame(overrides: Partial<UserGameDetails> = {}): UserGameDetails {
       name: 'Bloodborne',
       coverUrl: null,
       isManual: false,
+      provider: null,
+      externalId: null,
       slug: 'bloodborne',
       summary: 'Hunt or be hunted.',
       releaseDate: '2015-03-24',
@@ -93,7 +95,8 @@ describe('game detail page', () => {
     const header = screen.getByRole('banner', { name: 'Bloodborne' });
     expect(within(header).getByText('PlayStation 4')).toBeInTheDocument();
     expect(within(header).getByText('Completado')).toBeInTheDocument();
-    expect(within(header).getByText('Tiempo total: 14 h 32 min')).toBeInTheDocument();
+    expect(within(header).getByText('Tiempo total')).toBeInTheDocument();
+    expect(within(header).getByText('14 h 32 min')).toBeInTheDocument();
     expect(within(header).getByText('95/100')).toBeInTheDocument();
     expect(within(header).getByText('Platino')).toBeInTheDocument();
 
@@ -102,11 +105,40 @@ describe('game detail page', () => {
       'Mi juego',
       'Partidas',
       'Sesiones',
+      'Notas',
       'Platino',
       'Dificultades',
-      'Notas',
     ]);
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  });
+
+  it("uses the catalog's artwork behind the header, and none is requested for manual games", async () => {
+    const base = buildGame();
+    const { calls } = renderDetail(
+      { ...base, game: { ...base.game, provider: 'igdb', externalId: '7334' } },
+      {
+        'GET /catalog/games/igdb/7334': () => ({
+          status: 200,
+          body: { artworkUrl: '/api/catalog/igdb/images/arbb?size=artwork' },
+        }),
+      },
+    );
+
+    const header = await screen.findByRole('banner', { name: 'Bloodborne' });
+    await waitFor(() =>
+      expect(
+        header.querySelector('img[src="/api/catalog/igdb/images/arbb?size=artwork"]'),
+      ).not.toBeNull(),
+    );
+    expect(calls.filter((c) => c.path.startsWith('/catalog/games/'))).toHaveLength(1);
+  });
+
+  it('does not ask the catalog for a manual game', async () => {
+    const base = buildGame();
+    const { calls } = renderDetail({ ...base, game: { ...base.game, isManual: true } });
+
+    await screen.findByRole('heading', { level: 1, name: 'Bloodborne' });
+    expect(calls.some((c) => c.path.startsWith('/catalog/'))).toBe(false);
   });
 
   it('shows the three note levels', async () => {

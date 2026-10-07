@@ -1,14 +1,13 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditIcon from '@mui/icons-material/Edit';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
+import { alpha } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { Section } from '../../../components/Section';
@@ -34,6 +33,8 @@ export function SessionsSection({
     <Section
       id="sesiones"
       title={messages.detail.sections.sessions}
+      icon={<ScheduleIcon />}
+      accent={(theme) => theme.palette.info.main}
       actions={
         <Tooltip title={canLogSession ? '' : messages.detail.logSessionDisabled}>
           <Box component="span">
@@ -51,69 +52,113 @@ export function SessionsSection({
       {userGame.sessions.length === 0 ? (
         <Typography color="text.secondary">{t.empty}</Typography>
       ) : (
-        <List disablePadding>
-          {userGame.sessions.map((session) => {
+        <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+          {userGame.sessions.map((session, index) => {
             const when = formatDateTime(session.playedAt);
+            const last = index === userGame.sessions.length - 1;
             return (
-              <ListItem
+              <Box
+                component="li"
                 key={session.id}
-                divider
-                disableGutters
-                secondaryAction={
-                  <Stack direction="row">
+                sx={{ display: 'flex', gap: 1.75, position: 'relative', pb: last ? 0 : 2 }}
+              >
+                {/* Timeline: a dot per session joined by a line. */}
+                <Box
+                  aria-hidden
+                  sx={(theme) => ({
+                    position: 'relative',
+                    flexShrink: 0,
+                    width: 12,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pt: 0.75,
+                    '&::after': last
+                      ? undefined
+                      : {
+                          content: '""',
+                          position: 'absolute',
+                          top: 22,
+                          bottom: -6,
+                          width: 2,
+                          bgcolor: alpha(theme.palette.info.main, 0.25),
+                        },
+                  })}
+                >
+                  <Box
+                    sx={(theme) => ({
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      bgcolor: session.countsTowardTime
+                        ? theme.palette.info.main
+                        : theme.palette.grey[600],
+                      boxShadow: session.countsTowardTime
+                        ? `0 0 8px ${theme.palette.info.main}`
+                        : 'none',
+                    })}
+                  />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    useFlexGap
+                    sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                  >
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                      {when}
+                    </Typography>
+                    <Typography
+                      component="span"
+                      sx={(theme) => ({
+                        px: 1,
+                        borderRadius: 1,
+                        fontWeight: 800,
+                        bgcolor: alpha(theme.palette.info.main, 0.14),
+                        color: 'info.light',
+                      })}
+                    >
+                      {formatMinutes(session.durationMinutes)}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={t.ofPlaythrough(session.playthroughNumber)}
+                    />
+                    {!session.countsTowardTime ? (
+                      <Chip size="small" color="warning" variant="outlined" label={t.notCounted} />
+                    ) : null}
+                    <Box sx={{ flex: 1 }} />
                     <IconButton
+                      size="small"
                       aria-label={t.edit(when)}
                       onClick={() => onAction({ type: 'editSession', session })}
                     >
-                      <EditIcon />
+                      <EditIcon fontSize="small" />
                     </IconButton>
                     <IconButton
+                      size="small"
                       aria-label={t.delete(when)}
                       color="error"
                       onClick={() => onAction({ type: 'deleteSession', session })}
                     >
-                      <DeleteOutlineIcon />
+                      <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
                   </Stack>
-                }
-                sx={{ pr: 12 }}
-              >
-                <ListItemText
-                  primary={
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      useFlexGap
-                      sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                  {session.notes ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
                     >
-                      <span>{when}</span>
-                      <Typography component="span" sx={{ fontWeight: 700 }}>
-                        {formatMinutes(session.durationMinutes)}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={t.ofPlaythrough(session.playthroughNumber)}
-                      />
-                      {!session.countsTowardTime ? (
-                        <Chip
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                          label={t.notCounted}
-                        />
-                      ) : null}
-                    </Stack>
-                  }
-                  secondary={session.notes}
-                  slotProps={{
-                    secondary: { sx: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } },
-                  }}
-                />
-              </ListItem>
+                      {session.notes}
+                    </Typography>
+                  ) : null}
+                </Box>
+              </Box>
             );
           })}
-        </List>
+        </Box>
       )}
     </Section>
   );

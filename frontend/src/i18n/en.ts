@@ -482,6 +482,7 @@ export const en: Messages = {
     },
     platinum: {
       achieved: 'Platinum earned',
+      achievedShort: 'Earned',
       notAchieved: 'No platinum',
       date: 'Platinum date',
       time: 'Platinum time',
@@ -495,6 +496,7 @@ export const en: Messages = {
       platinumList: 'Platinum difficulties',
       add: 'Add',
       newName: (list: string) => `New difficulty (${list})`,
+      newLabel: 'New difficulty',
       rename: (name: string) => `Rename ${name}`,
       renameTitle: 'Rename difficulty',
       name: 'Name',

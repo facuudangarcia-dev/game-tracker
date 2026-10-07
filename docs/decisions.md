@@ -199,3 +199,9 @@ decisiones técnicas que afectan el comportamiento.
     queda como columna lateral. Debajo, "Juegos relacionados": los `similar_games` de IGDB (tipos
     permitidos, con portada, sin contenido adulto). Capturas y relacionados no se guardan: se
     piden al proveedor con caché y, si no responde, esas secciones no aparecen.
+59. **"Mi juego" con la nueva identidad:** encabezado con el artwork del catálogo (portada
+    desenfocada para juegos manuales), indicadores de estado, tiempo, valoración y platino, y
+    acciones; "Mi juego" a todo el ancho; partidas, sesiones y notas en la columna principal y
+    platino y dificultades al costado. Para pedir el artwork, el detalle de un juego de la
+    biblioteca expone su `provider` y `externalId` (null en juegos manuales). Sin cambios de datos
+    ni de lógica. El modal "Agregar juego" ya no repite la portada (se ve en la página de atrás).

@@ -415,7 +415,6 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
       {adding ? (
         <AddToLibraryDialog
           gameName={game.name}
-          coverUrl={game.coverUrl}
           artworkUrl={game.artworkUrl}
           year={year}
           source={

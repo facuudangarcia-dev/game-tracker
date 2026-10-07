@@ -18,6 +18,9 @@ export interface GameSummaryDto {
 }
 
 export interface GameDetailsDto extends GameSummaryDto {
+  /** Catalog reference (null for manual games): links to the catalog page and its artwork. */
+  provider: string | null;
+  externalId: string | null;
   slug: string | null;
   summary: string | null;
   releaseDate: string | null;
@@ -77,6 +80,8 @@ export function toGameSummary(game: Game): GameSummaryDto {
 export function toGameDetails(game: Game): GameDetailsDto {
   return {
     ...toGameSummary(game),
+    provider: game.provider,
+    externalId: game.externalId,
     slug: game.slug,
     summary: game.summary,
     releaseDate: game.releaseDate,

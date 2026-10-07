@@ -1,3 +1,4 @@
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
@@ -20,18 +21,27 @@ export function Facts({ items }: { items: [string, ReactNode][] }) {
         gridTemplateColumns: {
           xs: '1fr',
           sm: 'repeat(2, minmax(0, 1fr))',
-          md: 'repeat(3, minmax(0, 1fr))',
+          md: 'repeat(auto-fit, minmax(170px, 1fr))',
         },
-        gap: 2,
+        columnGap: 3,
+        rowGap: 2.25,
         m: 0,
       }}
     >
       {items.map(([label, value]) => (
-        <Box key={label}>
-          <Typography component="dt" variant="caption" color="text.secondary">
+        <Box key={label} sx={{ minWidth: 0 }}>
+          <Typography
+            component="dt"
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}
+          >
             {label}
           </Typography>
-          <Typography component="dd" sx={{ m: 0 }}>
+          <Typography
+            component="dd"
+            sx={{ m: 0, mt: 0.25, fontWeight: 600, overflowWrap: 'anywhere' }}
+          >
             {value}
           </Typography>
         </Box>
@@ -60,7 +70,7 @@ export function MyGameSection({ userGame }: { userGame: UserGameDetails }) {
   }
 
   return (
-    <Section id="mi-juego" title={messages.detail.sections.myGame}>
+    <Section id="mi-juego" title={messages.detail.sections.myGame} icon={<SportsEsportsIcon />}>
       <Facts items={items} />
     </Section>
   );

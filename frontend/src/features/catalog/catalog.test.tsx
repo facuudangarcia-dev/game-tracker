@@ -242,16 +242,14 @@ describe('catalog game page', () => {
     });
   });
 
-  it('shows the cover, name and year of the game in the add dialog', async () => {
+  it('shows the name and year in the add dialog, without repeating the cover', async () => {
     openCatalogPage(spiderMan);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Agregar juego' }));
     const dialog = await screen.findByRole('dialog', { name: 'Agregar juego' });
 
-    expect(within(dialog).getByRole('img', { name: "Marvel's Spider-Man" })).toHaveAttribute(
-      'src',
-      spiderMan.coverUrl,
-    );
+    // The page behind already shows the cover: the dialog doesn't repeat it.
+    expect(within(dialog).queryByRole('img')).not.toBeInTheDocument();
     expect(within(dialog).getByText("Marvel's Spider-Man")).toBeInTheDocument();
     expect(within(dialog).getByText('(2018)', { exact: false })).toBeInTheDocument();
     // Defaults: pending, "Normal" difficulty.

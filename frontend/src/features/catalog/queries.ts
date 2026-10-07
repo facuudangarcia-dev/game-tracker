@@ -20,10 +20,12 @@ export function fetchCatalogGame(provider: string, externalId: string): Promise<
   );
 }
 
-export function useCatalogGame(provider: string, externalId: string) {
+/** `enabled: false` skips the request (e.g. manual games, which have no catalog page). */
+export function useCatalogGame(provider: string, externalId: string, enabled = true) {
   return useQuery({
     queryKey: catalogKeys.game(provider, externalId),
     queryFn: () => fetchCatalogGame(provider, externalId),
+    enabled,
   });
 }
 

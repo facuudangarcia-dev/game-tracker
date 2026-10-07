@@ -17,7 +17,6 @@ import { messages } from '../../i18n/messages';
 import { getApiErrorMessage } from '../../lib/api/errors';
 import { todayLocal } from '../../lib/dates';
 import { ambientBackground, brandGradient, statusColor } from '../../theme/brand';
-import { GameCover } from './GameCover';
 import { useAddUserGame } from './queries';
 import type { GameSource, Platform, PlayStatus, UserGameDetails } from './types';
 import {
@@ -42,7 +41,6 @@ interface AddToLibraryDialogProps {
   takenPlatformIds?: string[];
   isManual?: boolean;
   /** Shown in the header when available. */
-  coverUrl?: string | null;
   artworkUrl?: string | null;
   year?: string | null;
   onClose: () => void;
@@ -88,7 +86,6 @@ export function AddToLibraryDialog({
   platforms,
   takenPlatformIds = [],
   isManual = false,
-  coverUrl = null,
   artworkUrl = null,
   year = null,
   onClose,
@@ -205,7 +202,7 @@ export function AddToLibraryDialog({
             alignItems: 'flex-end',
             gap: 2,
             px: 3,
-            pt: 5,
+            pt: { xs: 7, sm: 9 },
             pb: 2.5,
             background: ambientBackground(theme),
           })}
@@ -235,16 +232,6 @@ export function AddToLibraryDialog({
               background: `linear-gradient(0deg, ${theme.palette.background.default} 2%, ${alpha(theme.palette.background.default, 0.7)} 55%, ${alpha(theme.palette.background.default, 0.35)} 100%)`,
             })}
           />
-          <Box
-            sx={(theme) => ({
-              borderRadius: 1.5,
-              overflow: 'hidden',
-              flexShrink: 0,
-              boxShadow: `0 14px 30px -10px rgba(0,0,0,0.8), 0 0 0 1px ${alpha(theme.palette.common.white, 0.12)}`,
-            })}
-          >
-            <GameCover src={coverUrl} name={gameName} width={{ xs: 72, sm: 88 }} square />
-          </Box>
           <Box sx={{ minWidth: 0, pb: 0.5 }}>
             <Typography
               id="add-to-library-title"

@@ -1,8 +1,10 @@
 import EditIcon from '@mui/icons-material/Edit';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import { Section } from '../../../components/Section';
@@ -15,7 +17,16 @@ const t = messages.detail.notes;
 
 function NoteText({ children }: { children: string }) {
   return (
-    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+    <Typography
+      variant="body2"
+      sx={(theme) => ({
+        pl: 1.5,
+        borderLeft: `2px solid ${alpha(theme.palette.secondary.main, 0.55)}`,
+        fontStyle: 'italic',
+        whiteSpace: 'pre-wrap',
+        overflowWrap: 'anywhere',
+      })}
+    >
       {children}
     </Typography>
   );
@@ -24,7 +35,17 @@ function NoteText({ children }: { children: string }) {
 function NoteGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Box>
-      <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700, mb: 1 }}>
+      <Typography
+        variant="overline"
+        component="h3"
+        sx={{
+          display: 'block',
+          fontWeight: 800,
+          letterSpacing: 1.4,
+          color: 'text.secondary',
+          mb: 0.75,
+        }}
+      >
         {title}
       </Typography>
       {children}
@@ -44,7 +65,12 @@ export function NotesSection({
   const sessionNotes = userGame.sessions.filter((s) => s.notes);
 
   return (
-    <Section id="notas" title={messages.detail.sections.notes}>
+    <Section
+      id="notas"
+      title={messages.detail.sections.notes}
+      icon={<EditNoteIcon />}
+      accent={(theme) => theme.palette.secondary.main}
+    >
       <Stack spacing={3}>
         <NoteGroup title={t.general}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
