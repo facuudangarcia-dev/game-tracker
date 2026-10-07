@@ -11,6 +11,7 @@ import { GenresModule } from './genres/genres.module';
 import { HealthModule } from './health/health.module';
 import { LibraryModule } from './library/library.module';
 import { PlatformsModule } from './platforms/platforms.module';
+import { ProfileModule } from './profile/profile.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     AssetsModule,
     CatalogModule,
     LibraryModule,
+    ProfileModule,
   ],
 })
 export class AppModule {}

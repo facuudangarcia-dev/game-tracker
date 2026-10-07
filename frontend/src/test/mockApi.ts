@@ -13,12 +13,27 @@ type Handler = (request: MockRequest) => { status: number; body?: unknown };
  * /api prefix, query string included). Health and an empty library are answered
  * by default (also empty platforms and genres); unhandled requests fail the test loudly.
  */
+/** Stats of a player without games. */
+export const emptyStats = {
+  totalGames: 0,
+  completed: 0,
+  inProgress: 0,
+  pending: 0,
+  platinums: 0,
+  totalMinutes: 0,
+  rated: 0,
+  averageRating: null,
+  playthroughs: 0,
+  topPlatform: null,
+};
+
 export function mockApi(customHandlers: Record<string, Handler>) {
   const handlers: Record<string, Handler> = {
     'GET /health': healthOk,
     'GET /library': () => ({ status: 200, body: [] }),
     'GET /platforms': () => ({ status: 200, body: [] }),
     'GET /genres': () => ({ status: 200, body: [] }),
+    'GET /profile/stats': () => ({ status: 200, body: emptyStats }),
     'GET /catalog/highlights': () => ({
       status: 200,
       body: { recent: [], upcoming: [], catalogAvailable: true },
@@ -58,6 +73,7 @@ export const testUser = {
   username: 'player_one',
   email: 'player@example.com',
   emailVerified: true,
+  avatar: null,
   createdAt: '2026-10-04T12:00:00.000Z',
 };
 

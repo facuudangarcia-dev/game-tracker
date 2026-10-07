@@ -119,6 +119,10 @@ describe('Security review (e2e)', () => {
       ['get', '/api/catalog/igdb/images/co1wyy'],
       ['get', '/api/library'],
       ['post', '/api/library', {}],
+      ['get', '/api/profile/stats'],
+      ['put', '/api/profile/avatar', { preset: 'knight' }],
+      ['delete', '/api/profile/avatar'],
+      ['get', '/api/profile/avatar/image'],
     ];
     for (const [method, url, body] of [...global, ...routes]) {
       const response = await send(method, url, body);
@@ -146,6 +150,10 @@ describe('Security review (e2e)', () => {
       ['get', '/api/catalog/igdb/images/co1wyy'],
       ['get', '/api/library'],
       ['post', '/api/library', { manualGame: { name: 'x' }, platformId: game.platform.id }],
+      ['get', '/api/profile/stats'],
+      ['put', '/api/profile/avatar', { preset: 'knight' }],
+      ['delete', '/api/profile/avatar'],
+      ['get', '/api/profile/avatar/image'],
     ];
 
     for (const [method, url, body] of [...global, ...routes]) {
@@ -182,6 +190,8 @@ describe('Security review (e2e)', () => {
     await send('get', '/api/health').expect(200);
     await send('post', '/api/auth/logout').expect(204);
     await send('get', '/api/assets/covers/missing.jpg').expect(404);
+    // Avatars are personal: never served by the public assets route.
+    await send('get', `/api/assets/avatars/${'a'.repeat(64)}.png`).expect(404);
   });
 
   it("never lets a user read or change another user's game or its nested data", async () => {

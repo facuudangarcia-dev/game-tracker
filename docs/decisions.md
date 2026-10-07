@@ -185,3 +185,11 @@ decisiones técnicas que afectan el comportamiento.
     ancha de IGDB: el artwork apaisado más grande (de al menos 1280 px de ancho; los más chicos
     suelen ser logos) o, si no hay, una captura. No se guarda al importar: para juegos ya
     importados se pide al proveedor (con caché) y, si no responde, la ficha se muestra sin él.
+56. **Avatar:** un avatar predeterminado (12 ilustraciones propias en SVG, sin personajes con
+    copyright) o una foto propia JPG/PNG/WebP de hasta 2 MB, validada por contenido. La foto es
+    privada: se sirve solo a su dueño por `/api/profile/avatar/image`, nunca por la ruta pública
+    de assets (que solo sirve portadas). Sin editor de recorte: se muestra recortada en círculo.
+57. **Estadísticas del perfil:** con los datos reales del usuario. Juegos registrados = entradas
+    de Mis juegos (un juego en dos plataformas cuenta dos veces). Horas jugadas = suma del tiempo de
+    las partidas. Valoración media con un decimal, solo de juegos valorados. Se suman partidas y
+    plataforma principal (la de más juegos).

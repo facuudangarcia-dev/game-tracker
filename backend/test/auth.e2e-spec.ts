@@ -88,6 +88,7 @@ describe('Auth (e2e)', () => {
         username: 'player_one',
         email: EMAIL,
         emailVerified: false,
+        avatar: null,
         createdAt: expect.any(String),
       });
       expect(response.headers['set-cookie']).toBeUndefined();
@@ -375,6 +376,7 @@ describe('Auth (e2e)', () => {
         username: 'player',
         email: EMAIL,
         emailVerified: true,
+        avatar: null,
         createdAt: expect.any(String),
       });
     });

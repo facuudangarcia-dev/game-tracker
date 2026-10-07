@@ -13,6 +13,8 @@ import {
 // so the unique indexes are effectively case-insensitive.
 @Check('CHK_users_email_lowercase', `"email" = lower("email")`)
 @Check('CHK_users_username_format', `"username" ~ '^[a-z0-9_]{3,30}$'`)
+// At most one avatar: a built-in preset or an uploaded image.
+@Check('CHK_users_single_avatar', `"avatar_preset" IS NULL OR "avatar_asset_key" IS NULL`)
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -58,6 +60,14 @@ export class User {
 
   @Column({ name: 'privacy_version', type: 'varchar', length: 20 })
   privacyVersion: string;
+
+  /** Built-in avatar id (see profile/avatar-presets.ts). */
+  @Column({ name: 'avatar_preset', type: 'varchar', length: 40, nullable: true })
+  avatarPreset: string | null;
+
+  /** Uploaded avatar in the asset storage ("avatars/<sha256>.<ext>"); private. */
+  @Column({ name: 'avatar_asset_key', type: 'varchar', length: 200, nullable: true })
+  avatarAssetKey: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

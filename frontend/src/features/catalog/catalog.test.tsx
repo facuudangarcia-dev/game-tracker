@@ -98,7 +98,9 @@ describe('navigation, home and profile', () => {
   it('shows the profile with the email and a way to log out', async () => {
     const { router } = setup({ 'POST /auth/logout': () => ({ status: 204 }) }, '/profile');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Mi perfil' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: testUser.username }),
+    ).toBeInTheDocument();
     const main = screen.getByRole('main');
     expect(within(main).getByText(testUser.email)).toBeInTheDocument();
 

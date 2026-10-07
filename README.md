@@ -326,7 +326,7 @@ Mis juegos, Mi perfil); en mobile la navegación pasa a un menú lateral y el bu
 | `/catalog/:provider/:externalId` | Juego del catálogo ("este juego existe") con **+ Agregar juego** |
 | `/games`                         | Mis juegos: búsqueda, filtros y orden de la biblioteca personal  |
 | `/games/:id`                     | Mi juego: partidas, sesiones, platino, dificultades y notas      |
-| `/profile`                       | Mi perfil: username, email y cierre de sesión                    |
+| `/profile`                       | Ficha del jugador: avatar, username, estadísticas y cuenta       |
 | `/register`, `/login`            | Registro e inicio de sesión (solo sin sesión)                    |
 | `/verify-email?email=…`          | "Verificá tu email": código de 6 dígitos y reenvío               |
 | `/terms`, `/privacy`             | Términos de uso y Política de privacidad (públicas, borrador)    |
@@ -345,6 +345,27 @@ responde, la Home oculta esas secciones.
 La página del catálogo usa `GET /api/catalog/games/:provider/:externalId`: si el juego ya fue
 importado responde desde la base (funciona aunque IGDB esté caído); si no, consulta IGDB **sin
 guardar nada**. Los juegos manuales no tienen ID externo, así que nunca son accesibles por esa ruta.
+
+## Perfil
+
+`/profile` es la "ficha del jugador": avatar, username, estadísticas con los datos reales del
+usuario y la cuenta (email y cierre de sesión).
+
+| Endpoint                        | Descripción                                                              |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `GET /api/profile/stats`        | Juegos registrados, completados, en progreso, pendientes, platinos, etc. |
+| `PUT /api/profile/avatar`       | Elige un avatar predeterminado (`{ "preset": "knight" }`)                |
+| `PUT /api/profile/avatar/image` | Sube una foto: cuerpo binario JPG/PNG/WebP, máximo 2 MB                  |
+| `DELETE /api/profile/avatar`    | Quita el avatar                                                          |
+| `GET /api/profile/avatar/image` | Devuelve la foto subida del usuario actual                               |
+
+- **Avatares predeterminados:** 12 ilustraciones SVG propias, inspiradas en arquetipos gamer
+  (`frontend/src/features/profile/AvatarIllustration.tsx`). No se usan personajes con copyright.
+- **Foto propia:** el formato se detecta por el contenido (no por la extensión ni el
+  `Content-Type`), se guarda con el mismo almacenamiento de las portadas en
+  `avatars/<sha256>.<ext>` y **nunca** se sirve por la ruta pública de assets: solo su dueño la
+  ve, con sesión. Al reemplazarla o quitarla se borra el archivo si nadie más lo usa.
+- **Horas jugadas** = suma del tiempo de todas las partidas (el tiempo del platino es aparte).
 
 ## Idiomas
 

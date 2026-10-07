@@ -1,10 +1,13 @@
 import { ApiError, apiFetch } from '../../lib/api/client';
 
+export type Avatar = { kind: 'preset'; preset: string } | { kind: 'custom'; url: string } | null;
+
 export interface User {
   id: string;
   username: string;
   email: string;
   emailVerified: boolean;
+  avatar: Avatar;
   createdAt: string;
 }
 
