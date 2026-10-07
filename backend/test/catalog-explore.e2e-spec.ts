@@ -37,6 +37,16 @@ describe('Catalog exploration and configured add (e2e)', () => {
       releaseDate: '2018-09-07',
       coverRef: 'cospidey',
       artworkRef: 'arspidey',
+      screenshotRefs: ['scone', 'sctwo'],
+      similarGames: [
+        {
+          externalId: '1002',
+          name: "Marvel's Spider-Man 2",
+          releaseDate: '2023-10-20',
+          coverRef: 'cospidey2',
+          platformExternalIds: ['167'],
+        },
+      ],
       platformExternalIds: ['48', '167', '6', '999999'],
       genres: [
         { externalId: '31', name: 'Adventure' },
@@ -90,6 +100,25 @@ describe('Catalog exploration and configured add (e2e)', () => {
         ],
         developers: ['Insomniac Games'],
         publishers: ['Sony Interactive Entertainment'],
+        screenshots: [
+          {
+            thumbnailUrl: '/api/catalog/igdb/images/scone?size=screenshot',
+            fullUrl: '/api/catalog/igdb/images/scone?size=artwork',
+          },
+          {
+            thumbnailUrl: '/api/catalog/igdb/images/sctwo?size=screenshot',
+            fullUrl: '/api/catalog/igdb/images/sctwo?size=artwork',
+          },
+        ],
+        relatedGames: [
+          {
+            provider: 'igdb',
+            externalId: '1002',
+            name: "Marvel's Spider-Man 2",
+            releaseDate: '2023-10-20',
+            coverUrl: '/api/catalog/igdb/images/cospidey2?size=cover',
+          },
+        ],
         libraryEntries: [],
       });
       await expect(dataSource.getRepository(Game).count()).resolves.toBe(0);
@@ -112,8 +141,10 @@ describe('Catalog exploration and configured add (e2e)', () => {
       expect(body.gameId).toEqual(expect.any(String));
       expect(body.coverUrl).toMatch(/^\/api\/assets\/covers\//);
       expect(body.genres.map((g) => g.name)).toEqual(['Aventura', 'Superhero']);
-      // The artwork is decorative: without the provider there is simply none.
+      // Artwork, screenshots and similar games are decorative: without the provider, none.
       expect(body.artworkUrl).toBeNull();
+      expect(body.screenshots).toEqual([]);
+      expect(body.relatedGames).toEqual([]);
     });
 
     it('takes the artwork of an imported game from the provider', async () => {
@@ -123,6 +154,8 @@ describe('Catalog exploration and configured add (e2e)', () => {
 
       expect(body.gameId).toEqual(expect.any(String));
       expect(body.artworkUrl).toBe('/api/catalog/igdb/images/arspidey?size=artwork');
+      expect(body.screenshots).toHaveLength(2);
+      expect(body.relatedGames.map((g) => g.externalId)).toEqual(['1002']);
     });
 
     it("lists only the current user's library entries for the game", async () => {
@@ -131,8 +164,42 @@ describe('Catalog exploration and configured add (e2e)', () => {
 
       const forAlice = (await getCatalogGame(alice).expect(200)).body as CatalogGameDto;
       expect(forAlice.libraryEntries).toEqual([
-        { userGameId: added.id, platform: expect.objectContaining({ slug: 'ps5' }) },
+        {
+          userGameId: added.id,
+          platform: expect.objectContaining({ slug: 'ps5' }),
+          status: 'PENDING',
+          totalMinutes: 0,
+          rating: null,
+          platinumAchieved: false,
+        },
       ]);
+    });
+
+    it("shows the user's progress on each library entry", async () => {
+      const added = (
+        await addSpiderMan(alice, 'ps5', {
+          initialPlaythrough: { status: 'IN_PROGRESS', startDate: '2025-01-01' },
+          rating: 88,
+        }).expect(201)
+      ).body as UserGameDetailsDto;
+      const base = `/api/library/${added.id}`;
+      await as(app, alice)
+        .put(`${base}/playthroughs/${added.playthroughs[0].id}/manual-time`, { minutes: 754 })
+        .expect(200);
+      await as(app, alice)
+        .put(`${base}/platinum`, { achieved: true, date: '2025-03-01', timeMinutes: 900 })
+        .expect(200);
+
+      const [entry] = ((await getCatalogGame(alice).expect(200)).body as CatalogGameDto)
+        .libraryEntries;
+
+      expect(entry).toMatchObject({
+        userGameId: added.id,
+        status: 'IN_PROGRESS',
+        totalMinutes: 754,
+        rating: 88,
+        platinumAchieved: true,
+      });
     });
 
     it('returns 404 for unknown games or providers, and 503 when the provider is down', async () => {
@@ -161,9 +228,10 @@ describe('Catalog exploration and configured add (e2e)', () => {
     it('serves the larger cover variant on request and validates the size', async () => {
       await as(app, alice).get('/api/catalog/igdb/images/cospidey?size=cover').expect(200);
       await as(app, alice).get('/api/catalog/igdb/images/cospidey').expect(200);
+      await as(app, alice).get('/api/catalog/igdb/images/scone?size=screenshot').expect(200);
       await as(app, alice).get('/api/catalog/igdb/images/cospidey?size=huge').expect(400);
 
-      expect(catalog.imageVariants).toEqual(['cover', 'thumbnail']);
+      expect(catalog.imageVariants).toEqual(['cover', 'thumbnail', 'screenshot']);
     });
   });
 

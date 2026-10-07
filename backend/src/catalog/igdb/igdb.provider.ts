@@ -32,6 +32,7 @@ const IMAGE_SIZES: Record<CatalogImageVariant, string> = {
   thumbnail: 't_cover_small_2x',
   cover: 't_cover_big_2x',
   artwork: 't_1080p',
+  screenshot: 't_screenshot_big',
 };
 /** IGDB theme "Erotic": never highlighted. */
 const IGDB_EROTIC_THEME_ID = 42;
@@ -44,6 +45,12 @@ const IMAGE_TIMEOUT_MS = 10_000;
 const PAGE_SIZE = 500;
 /** Wide images (artworks and screenshots) with their size, to pick a good background. */
 const WIDE_IMAGE_FIELDS = 'artworks.image_id,artworks.width,artworks.height,screenshots.image_id';
+/** Similar games shown on the game page, with what's needed for a poster. */
+const SIMILAR_GAMES_FIELDS =
+  'similar_games.name,similar_games.cover.image_id,similar_games.first_release_date,' +
+  'similar_games.game_type,similar_games.platforms,similar_games.themes';
+const MAX_SCREENSHOTS = 12;
+const MAX_SIMILAR_GAMES = 10;
 /** Smaller artworks look pixelated as a full-width background. */
 const MIN_WIDE_IMAGE_WIDTH = 1280;
 
@@ -58,6 +65,8 @@ interface IgdbGame {
   screenshots?: IgdbImage[];
   platforms?: number[];
   game_type?: number;
+  themes?: number[];
+  similar_games?: IgdbGame[];
   genres?: { id: number; name: string }[];
   involved_companies?: { developer?: boolean; publisher?: boolean; company?: { name?: string } }[];
 }
@@ -103,6 +112,7 @@ export class IgdbProvider implements GameCatalogProvider {
       'fields name,slug,summary,first_release_date,cover.image_id,' +
         `${WIDE_IMAGE_FIELDS},platforms,game_type,` +
         'genres.name,involved_companies.developer,involved_companies.publisher,' +
+        `${SIMILAR_GAMES_FIELDS},` +
         `involved_companies.company.name; where id = ${externalId};`,
     );
     if (!game || !isAllowedGameType(game.game_type)) {
@@ -116,6 +126,19 @@ export class IgdbProvider implements GameCatalogProvider {
     return {
       ...toHighlight(game),
       slug: game.slug ?? null,
+      screenshotRefs: unique((game.screenshots ?? []).map((s) => s.image_id)).slice(
+        0,
+        MAX_SCREENSHOTS,
+      ),
+      similarGames: (game.similar_games ?? [])
+        .filter(
+          (similar) =>
+            isAllowedGameType(similar.game_type) &&
+            similar.cover?.image_id &&
+            !(similar.themes ?? []).includes(IGDB_EROTIC_THEME_ID),
+        )
+        .slice(0, MAX_SIMILAR_GAMES)
+        .map(toSummary),
       summary: game.summary?.trim() || null,
       genres: (game.genres ?? []).map((g) => ({ externalId: String(g.id), name: g.name })),
       developers: companyNames('developer'),

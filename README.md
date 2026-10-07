@@ -342,6 +342,10 @@ una hora, no se importa ni se guarda nada, y las imágenes pasan por el proxy
 (`?size=artwork` para el fondo del hero, que se elige al azar en cada visita). Si IGDB no
 responde, la Home oculta esas secciones.
 
+La ficha del juego muestra el resumen (con scroll propio si es muy largo), "Tu juego" si está
+en tu biblioteca, una galería de capturas con visor y "Juegos relacionados" (los juegos similares
+que informa IGDB). Capturas y relacionados no se guardan nunca.
+
 La página del catálogo usa `GET /api/catalog/games/:provider/:externalId`: si el juego ya fue
 importado responde desde la base (funciona aunque IGDB esté caído); si no, consulta IGDB **sin
 guardar nada**. Los juegos manuales no tienen ID externo, así que nunca son accesibles por esa ruta.

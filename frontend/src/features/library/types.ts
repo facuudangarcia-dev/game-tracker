@@ -188,5 +188,27 @@ export interface CatalogGame {
   developers: string[];
   publishers: string[];
   /** The current user's UserGames of this game. */
-  libraryEntries: { userGameId: string; platform: Platform }[];
+  /** In-game screenshots: gallery size and full size. */
+  screenshots: { thumbnailUrl: string; fullUrl: string }[];
+  /** Similar games according to the catalog. */
+  relatedGames: RelatedGame[];
+  /** The user's entries of this game (one per platform), with their progress. */
+  libraryEntries: LibraryEntry[];
+}
+
+export interface RelatedGame {
+  provider: string;
+  externalId: string;
+  name: string;
+  releaseDate: string | null;
+  coverUrl: string | null;
+}
+
+export interface LibraryEntry {
+  userGameId: string;
+  platform: Platform;
+  status: PlayStatus;
+  totalMinutes: number;
+  rating: number | null;
+  platinumAchieved: boolean;
 }

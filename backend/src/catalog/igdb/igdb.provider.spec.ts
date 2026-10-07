@@ -159,6 +159,19 @@ describe('IgdbProvider', () => {
               { developer: false, publisher: true, company: { name: 'Bandai Namco' } },
               { developer: true, publisher: false, company: { name: 'CD Projekt RED' } },
             ],
+            screenshots: [{ image_id: 'sc1' }, { image_id: 'sc2' }, { image_id: 'sc1' }],
+            similar_games: [
+              {
+                id: 10,
+                name: 'Similar',
+                cover: { image_id: 'co10' },
+                game_type: 0,
+                platforms: [6],
+              },
+              { id: 11, name: 'A DLC', cover: { image_id: 'co11' }, game_type: 1 },
+              { id: 12, name: 'No cover', game_type: 0 },
+              { id: 13, name: 'Adult', cover: { image_id: 'co13' }, game_type: 0, themes: [42] },
+            ],
           },
         ],
       ]);
@@ -173,7 +186,17 @@ describe('IgdbProvider', () => {
         summary: 'RPG summary',
         releaseDate: '2015-05-19',
         coverRef: 'co1wyy',
-        artworkRef: null,
+        artworkRef: 'sc1',
+        screenshotRefs: ['sc1', 'sc2'],
+        similarGames: [
+          {
+            externalId: '10',
+            name: 'Similar',
+            releaseDate: null,
+            coverRef: 'co10',
+            platformExternalIds: ['6'],
+          },
+        ],
         platformExternalIds: ['48', '6'],
         genres: [{ externalId: '12', name: 'Role-playing (RPG)' }],
         developers: ['CD Projekt RED'],

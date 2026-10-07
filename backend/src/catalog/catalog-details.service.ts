@@ -1,13 +1,15 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { apiError } from '../common/api-error';
 import { Game } from '../games/game.entity';
 import { GenresService } from '../genres/genres.service';
+import { PlayStatus } from '../library/library.constants';
+import { UserGameSummary } from '../library/library-views.entity';
 import { UserGame } from '../library/user-game.entity';
 import { type PlatformResponseDto, toPlatformResponse } from '../platforms/platforms.controller';
 import { PlatformsService, resolvePlatforms } from '../platforms/platforms.service';
-import { assetUrl, catalogArtworkUrl, catalogCoverUrl } from './catalog-urls';
+import { assetUrl, catalogArtworkUrl, catalogCoverUrl, catalogScreenshotUrl } from './catalog-urls';
 import {
   type CatalogGameDetails,
   CatalogUnavailableError,
@@ -36,9 +38,35 @@ export interface CatalogGameDto {
   genres: { id: string | null; slug: string | null; name: string }[];
   developers: string[];
   publishers: string[];
-  /** The current user's UserGames of this game (one per platform). */
-  libraryEntries: { userGameId: string; platform: PlatformResponseDto }[];
+  /** In-game screenshots: a gallery size and a full size each. */
+  screenshots: { thumbnailUrl: string; fullUrl: string }[];
+  /** Similar games according to the provider, each with its own catalog page. */
+  relatedGames: RelatedGameDto[];
+  /** The current user's UserGames of this game (one per platform), with their progress. */
+  libraryEntries: LibraryEntryDto[];
 }
+
+export interface RelatedGameDto {
+  provider: string;
+  externalId: string;
+  name: string;
+  releaseDate: string | null;
+  coverUrl: string | null;
+}
+
+export interface LibraryEntryDto {
+  userGameId: string;
+  platform: PlatformResponseDto;
+  status: PlayStatus;
+  totalMinutes: number;
+  rating: number | null;
+  platinumAchieved: boolean;
+}
+
+/** What only the provider knows (not stored on import): decorative, may be empty. */
+type ProviderExtras = Pick<CatalogGameDto, 'artworkUrl' | 'screenshots' | 'relatedGames'>;
+
+const NO_EXTRAS: ProviderExtras = { artworkUrl: null, screenshots: [], relatedGames: [] };
 
 /**
  * Public ("this game exists") view of a catalog game, addressed by provider and
@@ -80,7 +108,7 @@ export class CatalogDetailsService {
         summary: local.summary,
         releaseDate: local.releaseDate,
         coverUrl: local.coverAssetKey ? assetUrl(local.coverAssetKey) : null,
-        artworkUrl: await this.artworkOfImported(externalId),
+        ...(await this.extrasOfImported(externalId)),
         platforms: [...local.platforms]
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map(toPlatformResponse),
@@ -106,9 +134,7 @@ export class CatalogDetailsService {
       summary: details.summary,
       releaseDate: details.releaseDate,
       coverUrl: details.coverRef ? catalogCoverUrl(this.catalog.id, details.coverRef) : null,
-      artworkUrl: details.artworkRef
-        ? catalogArtworkUrl(this.catalog.id, details.artworkRef)
-        : null,
+      ...this.extras(details),
       platforms: resolvePlatforms(details.platformExternalIds, platformMap).map(toPlatformResponse),
       genres: await this.genres.describe(this.catalog.id, details.genres),
       developers: details.developers,
@@ -148,27 +174,59 @@ export class CatalogDetailsService {
     return details;
   }
 
+  private extras(details: CatalogGameDetails): ProviderExtras {
+    const provider = this.catalog.id;
+    return {
+      artworkUrl: details.artworkRef ? catalogArtworkUrl(provider, details.artworkRef) : null,
+      screenshots: details.screenshotRefs.map((ref) => ({
+        thumbnailUrl: catalogScreenshotUrl(provider, ref),
+        fullUrl: catalogArtworkUrl(provider, ref),
+      })),
+      relatedGames: details.similarGames.map((game) => ({
+        provider,
+        externalId: game.externalId,
+        name: game.name,
+        releaseDate: game.releaseDate,
+        coverUrl: game.coverRef ? catalogCoverUrl(provider, game.coverRef) : null,
+      })),
+    };
+  }
+
   /**
-   * Artwork isn't stored on import: it's taken from the provider (cached). Purely
-   * decorative, so any failure just means no artwork and the page still works.
+   * Artwork, screenshots and similar games aren't stored on import: they're taken
+   * from the provider (cached). Purely decorative, so any failure just leaves them
+   * empty and the page still works.
    */
-  private async artworkOfImported(externalId: string): Promise<string | null> {
+  private async extrasOfImported(externalId: string): Promise<ProviderExtras> {
     try {
-      const { artworkRef } = await this.fetchDetails(externalId);
-      return artworkRef ? catalogArtworkUrl(this.catalog.id, artworkRef) : null;
+      return this.extras(await this.fetchDetails(externalId));
     } catch {
-      return null;
+      return NO_EXTRAS;
     }
   }
 
-  private async libraryEntries(userId: string, gameId: string) {
+  private async libraryEntries(userId: string, gameId: string): Promise<LibraryEntryDto[]> {
     const userGames = await this.dataSource.getRepository(UserGame).find({
       where: { userId, gameId },
       relations: { platform: true },
     });
+    if (userGames.length === 0) {
+      return [];
+    }
+    const summaries = await this.dataSource
+      .getRepository(UserGameSummary)
+      .findBy({ userGameId: In(userGames.map((ug) => ug.id)) });
+    const summaryOf = new Map(summaries.map((summary) => [summary.userGameId, summary]));
     return userGames
       .sort((a, b) => a.platform.sortOrder - b.platform.sortOrder)
-      .map((ug) => ({ userGameId: ug.id, platform: toPlatformResponse(ug.platform) }));
+      .map((ug) => ({
+        userGameId: ug.id,
+        platform: toPlatformResponse(ug.platform),
+        status: summaryOf.get(ug.id)?.status ?? PlayStatus.Pending,
+        totalMinutes: summaryOf.get(ug.id)?.totalMinutes ?? 0,
+        rating: ug.rating,
+        platinumAchieved: ug.platinumAchieved,
+      }));
   }
 }
 

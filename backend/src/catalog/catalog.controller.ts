@@ -27,7 +27,12 @@ import {
   type GameCatalogProvider,
 } from './game-catalog-provider';
 
-const IMAGE_VARIANTS: readonly CatalogImageVariant[] = ['thumbnail', 'cover', 'artwork'];
+const IMAGE_VARIANTS: readonly CatalogImageVariant[] = [
+  'thumbnail',
+  'cover',
+  'artwork',
+  'screenshot',
+];
 
 export const SEARCH_QUERY_MIN_LENGTH = 2;
 export const SEARCH_QUERY_MAX_LENGTH = 100;
@@ -92,7 +97,7 @@ export class CatalogController {
     @Res() response: Response,
   ): Promise<void> {
     if (size !== undefined && !IMAGE_VARIANTS.includes(size as CatalogImageVariant)) {
-      throw new BadRequestException('size must be thumbnail, cover or artwork');
+      throw new BadRequestException('size must be thumbnail, cover, artwork or screenshot');
     }
     if (provider !== String(this.catalog.id) || !this.catalog.isValidImageRef(ref)) {
       throw new NotFoundException();

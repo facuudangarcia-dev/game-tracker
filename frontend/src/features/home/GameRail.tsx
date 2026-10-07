@@ -13,6 +13,7 @@ import { formatYear } from '../../lib/format';
 import { catalogGamePath } from '../catalog/queries';
 import { GameCover } from '../library/GameCover';
 import type { CatalogHighlight } from '../library/types';
+import { posterLinkSx } from '../../theme/brand';
 import { calendarParts, platformsLabel } from './homeFormat';
 import { SectionHeading } from './SectionHeading';
 
@@ -33,7 +34,7 @@ interface RailProps {
 }
 
 /** Horizontally scrolling row with snap points and arrow controls on larger screens. */
-function Rail({
+export function Rail({
   id,
   eyebrow,
   title,
@@ -122,30 +123,6 @@ const railButtonSx = {
   '&:hover': { borderColor: 'primary.main' },
 } as const;
 
-/** Card shared styles: snap, lift on hover and a soft glow. */
-const cardLinkSx = {
-  display: 'block',
-  color: 'inherit',
-  textDecoration: 'none',
-  borderRadius: 2,
-  outlineOffset: 3,
-  '& .card-media': {
-    position: 'relative',
-    borderRadius: 2,
-    overflow: 'hidden',
-    transition: 'transform .25s ease, box-shadow .25s ease',
-  },
-  '& .card-media img': { transition: 'transform .4s ease' },
-  '&:hover .card-media, &:focus-visible .card-media': {
-    transform: 'translateY(-6px)',
-  },
-  '&:hover .card-media img, &:focus-visible .card-media img': { transform: 'scale(1.05)' },
-  '@media (prefers-reduced-motion: reduce)': {
-    '& .card-media, & .card-media img': { transition: 'none' },
-    '&:hover .card-media, &:hover .card-media img': { transform: 'none' },
-  },
-} as const;
-
 interface HighlightsRailProps {
   games: CatalogHighlight[];
   loading: boolean;
@@ -171,7 +148,7 @@ export function RecentReleasesRail({ games, loading }: HighlightsRailProps) {
               component={RouterLink}
               to={catalogGamePath(game.provider, game.externalId)}
               sx={(theme) => ({
-                ...cardLinkSx,
+                ...posterLinkSx,
                 '&:hover .card-media, &:focus-visible .card-media': {
                   transform: 'translateY(-6px)',
                   boxShadow: `0 18px 40px -18px ${alpha(theme.palette.primary.main, 0.8)}, 0 0 0 1px ${alpha(theme.palette.primary.main, 0.6)}`,
@@ -243,7 +220,7 @@ export function UpcomingReleasesRail({ games, loading }: HighlightsRailProps) {
               component={RouterLink}
               to={catalogGamePath(game.provider, game.externalId)}
               sx={(theme) => ({
-                ...cardLinkSx,
+                ...posterLinkSx,
                 '&:hover .card-media, &:focus-visible .card-media': {
                   transform: 'translateY(-6px)',
                   boxShadow: `0 18px 40px -18px ${alpha(theme.palette.secondary.main, 0.7)}, 0 0 0 1px ${alpha(theme.palette.secondary.main, 0.55)}`,

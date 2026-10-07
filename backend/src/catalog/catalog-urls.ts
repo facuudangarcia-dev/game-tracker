@@ -16,6 +16,11 @@ export function catalogCoverUrl(provider: CatalogProvider, ref: string): string 
   return `${catalogThumbnailUrl(provider, ref)}?size=cover`;
 }
 
+/** Medium screenshot for galleries (not stored either). */
+export function catalogScreenshotUrl(provider: CatalogProvider, ref: string): string {
+  return `${catalogThumbnailUrl(provider, ref)}?size=screenshot`;
+}
+
 /** Wide high-resolution artwork for the Home hero (not stored either). */
 export function catalogArtworkUrl(provider: CatalogProvider, ref: string): string {
   return `${catalogThumbnailUrl(provider, ref)}?size=artwork`;

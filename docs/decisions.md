@@ -193,3 +193,9 @@ decisiones técnicas que afectan el comportamiento.
     de Mis juegos (un juego en dos plataformas cuenta dos veces). Horas jugadas = suma del tiempo de
     las partidas. Valoración media con un decimal, solo de juegos valorados. Se suman partidas y
     plataforma principal (la de más juegos).
+58. **Ficha del juego ampliada:** columna principal con el resumen (con altura máxima y scroll
+    propio si es muy largo), "Tu juego" (estado, horas, valoración y platino por plataforma, si
+    está en la biblioteca) y una galería de capturas de IGDB con visor; la información del juego
+    queda como columna lateral. Debajo, "Juegos relacionados": los `similar_games` de IGDB (tipos
+    permitidos, con portada, sin contenido adulto). Capturas y relacionados no se guardan: se
+    piden al proveedor con caché y, si no responde, esas secciones no aparecen.

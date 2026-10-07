@@ -22,6 +22,10 @@ export interface CatalogGameDetails extends CatalogGameSummary {
   slug: string | null;
   /** Wide image (artwork, else screenshot), if the provider has one. */
   artworkRef: string | null;
+  /** In-game screenshots (image refs), most relevant first. */
+  screenshotRefs: string[];
+  /** Similar games according to the provider (allowed types, with cover, no adult content). */
+  similarGames: CatalogGameSummary[];
   summary: string | null;
   genres: CatalogGenreRef[];
   developers: string[];
@@ -36,7 +40,7 @@ export interface CatalogTaxonomyEntry {
 }
 
 /** `artwork` is a wide, high-resolution image (key art or screenshot) for hero backgrounds. */
-export type CatalogImageVariant = 'thumbnail' | 'cover' | 'artwork';
+export type CatalogImageVariant = 'thumbnail' | 'cover' | 'artwork' | 'screenshot';
 
 /** Lists of notable games shown on the Home (docs/decisions.md #53). */
 export type CatalogHighlightKind = 'recent' | 'upcoming';

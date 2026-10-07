@@ -58,3 +58,27 @@ export function statusColor(theme: Theme, status: 'PENDING' | 'IN_PROGRESS' | 'C
 }
 
 export const reducedMotion = '@media (prefers-reduced-motion: reduce)';
+
+/** Poster/card links (Home rails, related games): lift on hover and a slight image zoom. */
+export const posterLinkSx = {
+  display: 'block',
+  color: 'inherit',
+  textDecoration: 'none',
+  borderRadius: 2,
+  outlineOffset: 3,
+  '& .card-media': {
+    position: 'relative',
+    borderRadius: 2,
+    overflow: 'hidden',
+    transition: 'transform .25s ease, box-shadow .25s ease',
+  },
+  '& .card-media img': { transition: 'transform .4s ease' },
+  '&:hover .card-media, &:focus-visible .card-media': {
+    transform: 'translateY(-6px)',
+  },
+  '&:hover .card-media img, &:focus-visible .card-media img': { transform: 'scale(1.05)' },
+  '@media (prefers-reduced-motion: reduce)': {
+    '& .card-media, & .card-media img': { transition: 'none' },
+    '&:hover .card-media, &:hover .card-media img': { transform: 'none' },
+  },
+} as const;

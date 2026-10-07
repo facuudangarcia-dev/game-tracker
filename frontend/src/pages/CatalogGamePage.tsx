@@ -1,5 +1,4 @@
 import AddIcon from '@mui/icons-material/Add';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import BusinessIcon from '@mui/icons-material/Business';
 import CategoryIcon from '@mui/icons-material/Category';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -15,8 +14,12 @@ import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
+import { GameSummary } from '../features/catalog/GameSummary';
+import { MyGamePanel } from '../features/catalog/MyGamePanel';
 import { useCatalogGame } from '../features/catalog/queries';
+import { RelatedGamesRail } from '../features/catalog/RelatedGamesRail';
+import { ScreenshotGallery } from '../features/catalog/ScreenshotGallery';
 import { AddToLibraryDialog } from '../features/library/AddToLibraryDialog';
 import { GameCover } from '../features/library/GameCover';
 import type { CatalogGame } from '../features/library/types';
@@ -329,43 +332,29 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
             </Stack>
 
             {game.libraryEntries.length > 0 ? (
-              <Box
+              <Stack
+                direction="row"
+                spacing={0.75}
                 sx={(theme) => ({
                   ...glassSx(theme, 0.6),
                   borderColor: alpha(theme.palette.success.main, 0.45),
-                  borderRadius: 2.5,
-                  p: 1.5,
-                  pr: 2,
+                  alignItems: 'center',
+                  borderRadius: 99,
+                  px: 1.5,
+                  py: 0.5,
                 })}
               >
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-                  <CheckCircleIcon color="success" fontSize="small" aria-hidden />
-                  <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                    {t.inLibrary}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 1 }}>
-                  {game.libraryEntries.map((entry) => (
-                    <Button
-                      key={entry.userGameId}
-                      size="small"
-                      variant="outlined"
-                      color="success"
-                      endIcon={<ArrowForwardIcon />}
-                      component={RouterLink}
-                      to={`/games/${entry.userGameId}`}
-                    >
-                      {t.viewMyGame(entry.platform.shortName)}
-                    </Button>
-                  ))}
-                </Stack>
-              </Box>
+                <CheckCircleIcon color="success" sx={{ fontSize: 18 }} aria-hidden />
+                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                  {t.inLibrary}
+                </Typography>
+              </Stack>
             ) : null}
           </Stack>
         </Stack>
       </Box>
 
-      {/* Body: summary as the main read, the game sheet as a column on the side. */}
+      {/* Body: summary, your game and screenshots on the left; the game sheet on the side. */}
       <Box
         sx={{
           display: 'grid',
@@ -374,43 +363,14 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
           alignItems: 'start',
         }}
       >
-        <Box
-          component="section"
-          aria-labelledby="catalog-summary"
-          sx={(theme) => ({ ...panelSx(theme), p: { xs: 2.5, md: 4 } })}
-        >
-          <Typography
-            id="catalog-summary"
-            variant="overline"
-            color="primary"
-            component="h2"
-            sx={{ fontWeight: 800, letterSpacing: 1.8 }}
-          >
-            {t.summary}
-          </Typography>
-          {game.summary ? (
-            <>
-              <Typography
-                sx={{
-                  mt: 1,
-                  whiteSpace: 'pre-wrap',
-                  fontSize: { xs: '1rem', md: '1.1rem' },
-                  lineHeight: 1.75,
-                  color: 'text.primary',
-                }}
-              >
-                {game.summary}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-                {t.summaryLanguageNote}
-              </Typography>
-            </>
-          ) : (
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              {t.noSummary}
-            </Typography>
-          )}
-        </Box>
+        <Stack spacing={{ xs: 3, md: 4 }} sx={{ minWidth: 0 }}>
+          <GameSummary summary={game.summary} />
+          {game.libraryEntries.length > 0 ? <MyGamePanel entries={game.libraryEntries} /> : null}
+          {game.screenshots.length > 0 ? (
+            <ScreenshotGallery name={game.name} screenshots={game.screenshots} />
+          ) : null}
+        </Stack>
+
         <Box
           component="section"
           aria-labelledby="catalog-information"
@@ -449,6 +409,8 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
           </Box>
         </Box>
       </Box>
+
+      {game.relatedGames.length > 0 ? <RelatedGamesRail games={game.relatedGames} /> : null}
 
       {adding ? (
         <AddToLibraryDialog

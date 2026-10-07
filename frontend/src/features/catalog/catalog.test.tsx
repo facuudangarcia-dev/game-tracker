@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi, testUser } from '../../test/mockApi';
 import { renderRoute } from '../../test/renderRoute';
-import type { CatalogGame, CatalogSearchResult, Platform } from '../library/types';
+import type { CatalogGame, CatalogSearchResult, LibraryEntry, Platform } from '../library/types';
 
 const ps4: Platform = { id: 'p-ps4', slug: 'ps4', name: 'PlayStation 4', shortName: 'PS4' };
 const ps5: Platform = { id: 'p-ps5', slug: 'ps5', name: 'PlayStation 5', shortName: 'PS5' };
@@ -24,8 +24,19 @@ const spiderMan: CatalogGame = {
   ],
   developers: ['Insomniac Games'],
   publishers: ['Sony Interactive Entertainment'],
+  screenshots: [],
+  relatedGames: [],
   libraryEntries: [],
 };
+
+const entry = (userGameId: string, platform: Platform): LibraryEntry => ({
+  userGameId,
+  platform,
+  status: 'IN_PROGRESS',
+  totalMinutes: 754,
+  rating: 88,
+  platinumAchieved: true,
+});
 
 const result = (overrides: Partial<CatalogSearchResult>): CatalogSearchResult => ({
   gameId: null,
@@ -289,7 +300,7 @@ describe('catalog game page', () => {
     openCatalogPage({
       ...spiderMan,
       gameId: 'g-1',
-      libraryEntries: [{ userGameId: 'ug-ps5', platform: ps5 }],
+      libraryEntries: [entry('ug-ps5', ps5)],
     });
 
     expect(await screen.findByText('Ya está en Mis juegos')).toBeInTheDocument();
@@ -307,14 +318,120 @@ describe('catalog game page', () => {
     expect(within(dialog).getByRole('option', { name: 'PlayStation 4' })).toBeEnabled();
   });
 
+  it('shows "Tu juego" with the progress of each library entry', async () => {
+    openCatalogPage({ ...spiderMan, gameId: 'g-1', libraryEntries: [entry('ug-ps5', ps5)] });
+
+    const panel = await screen.findByRole('region', { name: 'Tu juego' });
+    expect(within(panel).getByText('PS5')).toBeInTheDocument();
+    expect(within(panel).getByText('En progreso')).toBeInTheDocument();
+    expect(within(panel).getByText('12 h 34 min')).toBeInTheDocument();
+    expect(within(panel).getByText('88/100')).toBeInTheDocument();
+    expect(within(panel).getByRole('img', { name: 'Platino' })).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: 'Ver mi juego (PS5)' })).toHaveAttribute(
+      'href',
+      '/games/ug-ps5',
+    );
+  });
+
+  it('has no "Tu juego" panel when the game is not in the library', async () => {
+    openCatalogPage(spiderMan);
+
+    await screen.findByRole('heading', { level: 1, name: /Marvel's Spider-Man/ });
+    expect(screen.queryByRole('region', { name: 'Tu juego' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Capturas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Juegos relacionados' })).not.toBeInTheDocument();
+  });
+
+  it('shows a screenshot gallery with a full-size viewer', async () => {
+    const screenshots = Array.from({ length: 8 }, (_, i) => ({
+      thumbnailUrl: `/thumb/${i + 1}`,
+      fullUrl: `/full/${i + 1}`,
+    }));
+    openCatalogPage({ ...spiderMan, screenshots });
+
+    const gallery = await screen.findByRole('region', { name: 'Capturas' });
+    const thumbs = within(gallery).getAllByRole('button', { name: /^Ver captura/ });
+    expect(thumbs).toHaveLength(6);
+    expect(within(gallery).getByText('+2')).toBeInTheDocument();
+
+    await userEvent.click(thumbs[0]);
+    const viewer = await screen.findByRole('dialog', { name: 'Captura 1 de 8' });
+    expect(within(viewer).getByRole('img')).toHaveAttribute('src', '/full/1');
+
+    await userEvent.click(within(viewer).getByRole('button', { name: 'Siguiente' }));
+    expect(within(viewer).getByRole('img')).toHaveAttribute('src', '/full/2');
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
+    // Wraps around: from the first to the last.
+    expect(within(viewer).getByRole('img')).toHaveAttribute('src', '/full/8');
+  });
+
+  it('lists related games linking to their catalog pages', async () => {
+    openCatalogPage({
+      ...spiderMan,
+      relatedGames: [
+        {
+          provider: 'igdb',
+          externalId: '1002',
+          name: "Marvel's Spider-Man 2",
+          releaseDate: '2023-10-20',
+          coverUrl: null,
+        },
+      ],
+    });
+
+    const rail = await screen.findByRole('region', { name: 'Juegos relacionados' });
+    expect(within(rail).getByRole('link', { name: /Marvel's Spider-Man 2/ })).toHaveAttribute(
+      'href',
+      '/catalog/igdb/1002',
+    );
+    expect(within(rail).getByText('2023')).toBeInTheDocument();
+  });
+
+  describe('summary of any length', () => {
+    const restore: (() => void)[] = [];
+    const fakeLayout = (scrollHeight: number, clientHeight: number) => {
+      for (const [prop, value] of [
+        ['scrollHeight', scrollHeight],
+        ['clientHeight', clientHeight],
+      ] as const) {
+        const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop);
+        Object.defineProperty(HTMLElement.prototype, prop, {
+          configurable: true,
+          get: () => value,
+        });
+        restore.push(() => {
+          if (original) Object.defineProperty(HTMLElement.prototype, prop, original);
+        });
+      }
+    };
+    afterEach(() => {
+      restore.splice(0).forEach((undo) => undo());
+    });
+
+    it('keeps a short summary as plain text', async () => {
+      fakeLayout(60, 60);
+      openCatalogPage({ ...spiderMan, summary: 'Short.' });
+
+      expect(await screen.findByText('Short.')).toBeInTheDocument();
+      expect(screen.getByTestId('summary-scroll')).not.toHaveAttribute('tabindex');
+    });
+
+    it('gives a very long summary its own keyboard-scrollable area', async () => {
+      fakeLayout(4000, 320);
+      openCatalogPage({ ...spiderMan, summary: 'Long text. '.repeat(800) });
+
+      const area = await screen.findByTestId('summary-scroll');
+      await waitFor(() => expect(area).toHaveAttribute('tabindex', '0'));
+      expect(area).toHaveAttribute('role', 'region');
+      expect(area).toHaveAccessibleName('Resumen');
+    });
+  });
+
   it('cannot be added again once it is on all its platforms', async () => {
     openCatalogPage({
       ...spiderMan,
       gameId: 'g-1',
-      libraryEntries: [
-        { userGameId: 'ug-ps5', platform: ps5 },
-        { userGameId: 'ug-ps4', platform: ps4 },
-      ],
+      libraryEntries: [entry('ug-ps5', ps5), entry('ug-ps4', ps4)],
     });
 
     expect(await screen.findByRole('button', { name: 'Agregar juego' })).toBeDisabled();
