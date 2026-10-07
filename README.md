@@ -4,9 +4,10 @@ Aplicación web personal para registrar el historial con cada videojuego: juego 
 estado, partidas (playthroughs), tiempo jugado, sesiones, dificultad, rating, platino, fechas y
 notas.
 
-> **Estado actual: Fase 4 — catálogo externo.** Infraestructura, autenticación, modelo de catálogo
-> e integración con IGDB (búsqueda, importación y portadas). Todavía **no** hay biblioteca
-> (UserGame) ni partidas.
+> **Estado actual: V1 completa.** Autenticación, catálogo (IGDB), biblioteca personal, partidas,
+> sesiones y tiempo, dificultades, valoración, platino, notas, detalle del juego y biblioteca con
+> búsqueda, filtros y orden. Trofeos/logros, estadísticas, perfil avanzado y demás funcionalidades
+> de V2/V3 **no** están incluidas.
 >
 > Las decisiones funcionales que completan la especificación están en
 > [`docs/decisions.md`](docs/decisions.md).
@@ -49,6 +50,7 @@ game-tracker/
 │   │   ├── games/            # entidad Game (+ GamePlatform) y reglas de visibilidad
 │   │   ├── genres/           # géneros precargados (en español) y GET /api/genres
 │   │   ├── health/           # endpoint técnico GET /api/health
+│   │   ├── library/          # UserGame, partidas, sesiones, dificultades, platino, vistas
 │   │   ├── platforms/        # plataformas precargadas y GET /api/platforms
 │   │   ├── users/            # entidad User y servicio
 │   │   ├── app.module.ts
@@ -60,7 +62,8 @@ game-tracker/
 ├── frontend/                 # SPA React + Vite
 │   └── src/
 │       ├── app/              # providers, query client, rutas
-│       ├── features/         # código por funcionalidad (auth, health)
+│       ├── components/       # componentes compartidos (diálogos, secciones, campos)
+│       ├── features/         # auth, library (Mis juegos), game-detail, health
 │       ├── i18n/             # textos de la UI centralizados (español)
 │       ├── layouts/
 │       ├── lib/api/          # cliente HTTP (fetch con credentials: 'include')
@@ -234,6 +237,42 @@ npm --prefix backend run catalog:verify-igdb
 
 Es de solo lectura: imprime un informe y sale con código 1 si algo no coincide. Las
 correcciones se aplican con una migración nueva, revisada. Nunca imprime credenciales.
+
+## Biblioteca (V1)
+
+Un **UserGame** es el registro personal de un juego en una plataforma (usuario + juego +
+plataforma, único). Cada uno tiene siempre al menos una partida: la #1 se crea automáticamente y
+nunca se puede eliminar.
+
+- **Valores derivados** (vistas `playthrough_times` y `user_game_summaries`, nunca guardados):
+  estado (IN_PROGRESS si alguna partida está en progreso; si no, COMPLETED si alguna está
+  completada; si no, PENDING), inicio (el inicio más antiguo), finalización (la **primera**
+  finalización) y tiempo total (suma de las partidas).
+- **Tiempo** siempre en minutos enteros. Cada partida está en modo MANUAL (tiempo total cargado a
+  mano) o SESSIONS (suma de sus sesiones); nunca se mezclan, y cambiar de modo no pierde tiempo.
+- **Dificultades:** dos listas propias por UserGame (partidas y platino), con valores por defecto,
+  editables y reordenables; una dificultad en uso no se puede eliminar.
+- **Platino:** independiente del estado, del tiempo de juego y de la dificultad de las partidas.
+- **Propiedad:** todos los endpoints exigen sesión y verifican que el recurso sea del usuario; los
+  datos de otro usuario responden 404.
+
+| Endpoint                                                                           | Descripción                                                                        |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `GET /api/library`                                                                 | Lista con `search`, `status`, `platformId`, `genreId`, `platinum`, `sort`, `order` |
+| `POST /api/library`                                                                | Agrega un juego (`gameId`, `catalog` o `manualGame`) en una plataforma             |
+| `GET / PATCH / DELETE /api/library/:id`                                            | Detalle, valoración y nota general, eliminación                                    |
+| `GET / POST /api/library/:id/playthroughs`                                         | Partidas                                                                           |
+| `PATCH / DELETE /api/library/:id/playthroughs/:pid`                                | Editar / eliminar partida (no la #1)                                               |
+| `PUT /api/library/:id/playthroughs/:pid/manual-time`                               | Tiempo manual                                                                      |
+| `PUT /api/library/:id/playthroughs/:pid/time-mode`                                 | Cambiar MANUAL ↔ SESSIONS                                                          |
+| `POST /api/library/:id/playthroughs/:pid/sessions`                                 | Registrar sesión (solo modo SESSIONS)                                              |
+| `GET /api/library/:id/sessions`, `PATCH / DELETE …/sessions/:sid`                  | Sesiones                                                                           |
+| `GET / PUT /api/library/:id/platinum`                                              | Platino                                                                            |
+| `GET / POST /api/library/:id/difficulties`, `PATCH / DELETE …/:did`, `PUT …/order` | Dificultades                                                                       |
+
+En el frontend, **Mis juegos** (`/games`) es la pantalla principal (búsqueda, filtros y orden en
+la URL) y `/games/:id` es el detalle de un juego, organizado en secciones: cabecera, Mi juego,
+Partidas, Sesiones, Platino, Dificultades y Notas.
 
 ## Tests
 

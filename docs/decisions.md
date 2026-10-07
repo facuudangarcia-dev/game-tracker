@@ -112,3 +112,9 @@ decisiones técnicas que afectan el comportamiento.
     dificultad es opcional. La regla "fecha de platino ≥ inicio del juego" se protege en ambos
     sentidos: tampoco se permite cambiar el inicio de una partida si eso dejaría el platino antes
     del inicio del juego.
+39. **Orden de la biblioteca:** los juegos sin valor en el campo de orden (sin valoración, sin
+    inicio, sin finalización) van siempre al final, en ambas direcciones; los empates se
+    resuelven por nombre. Dirección por defecto: nombre A-Z; el resto, del mayor/más reciente al
+    menor. El orden por defecto es "fecha de agregado", más reciente primero.
+40. **Filtros de la biblioteca:** se guardan en la URL (compartible y compatible con "atrás").
+    La lista se devuelve completa (sin paginación): es una biblioteca personal.
