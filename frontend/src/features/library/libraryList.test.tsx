@@ -66,12 +66,16 @@ describe('library list', () => {
     });
     await screen.findByRole('article', { name: 'Bloodborne' });
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Estado' }), 'Completado');
+    await userEvent.click(
+      within(screen.getByRole('radiogroup', { name: 'Estado' })).getByRole('radio', {
+        name: 'Completado',
+      }),
+    );
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: 'Plataforma' }),
       'PlayStation 5',
     );
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Platino' }), 'Con platino');
+    await userEvent.click(screen.getByRole('radio', { name: 'Con platino' }));
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Género' }), 'Rol (RPG)');
 
     await waitFor(() =>
@@ -127,6 +131,26 @@ describe('library list', () => {
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Limpiar filtros' })[0]);
     expect(await screen.findByRole('article', { name: 'Bloodborne' })).toBeInTheDocument();
+  });
+
+  it('shows the active filters from the URL in the side column', async () => {
+    setup(
+      {
+        'GET /library?status=IN_PROGRESS&platinum=false': () => ({
+          status: 200,
+          body: [item()],
+        }),
+      },
+      '/games?status=IN_PROGRESS&platinum=false',
+    );
+
+    const filters = await screen.findByRole('complementary', { name: 'Filtros' });
+    expect(within(filters).getByRole('radio', { name: 'En progreso' })).toBeChecked();
+    expect(within(filters).getByRole('radio', { name: 'Sin platino' })).toBeChecked();
+    for (const radio of within(filters).getAllByRole('radio', { name: 'Todos' })) {
+      expect(radio).not.toBeChecked();
+    }
+    expect(within(filters).getByRole('button', { name: 'Limpiar filtros' })).toBeInTheDocument();
   });
 
   it('ignores invalid filter values in the URL', () => {

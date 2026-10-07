@@ -223,6 +223,8 @@ export const en: Messages = {
   },
   library: {
     title: 'My games',
+    eyebrow: 'Your library',
+    heroBody: "Everything you played, what you're playing and what's left to play.",
     addGame: 'Add game',
     loadError: "Your library couldn't be loaded.",
     emptyTitle: 'Your library is empty',
@@ -258,6 +260,9 @@ export const en: Messages = {
     openGame: (name: string) => `Open ${name}`,
     filters: {
       label: 'Library filters',
+      title: 'Filters',
+      open: (active: number) => (active > 0 ? `Filters (${active})` : 'Filters'),
+      showResults: 'Show results',
       search: 'Search my games',
       status: 'Status',
       platform: 'Platform',

@@ -50,3 +50,9 @@ export function hasActiveFilters(filters: LibraryFilters): boolean {
     filters.search || filters.status || filters.platformId || filters.genreId || filters.platinum,
   );
 }
+
+/** Number of active narrowing filters (search excluded), for the mobile button badge. */
+export function activeFilterCount(filters: LibraryFilters): number {
+  return [filters.status, filters.platformId, filters.genreId, filters.platinum].filter(Boolean)
+    .length;
+}

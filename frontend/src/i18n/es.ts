@@ -223,6 +223,8 @@ export const es = {
   },
   library: {
     title: 'Mis juegos',
+    eyebrow: 'Tu biblioteca',
+    heroBody: 'Todo lo que jugaste, lo que estás jugando y lo que te queda por jugar.',
     addGame: 'Agregar juego',
     loadError: 'No se pudo cargar tu biblioteca.',
     emptyTitle: 'Tu biblioteca está vacía',
@@ -258,6 +260,9 @@ export const es = {
     openGame: (name: string) => `Abrir ${name}`,
     filters: {
       label: 'Filtros de la biblioteca',
+      title: 'Filtros',
+      open: (active: number) => (active > 0 ? `Filtros (${active})` : 'Filtros'),
+      showResults: 'Ver resultados',
       search: 'Buscar en mis juegos',
       status: 'Estado',
       platform: 'Plataforma',
