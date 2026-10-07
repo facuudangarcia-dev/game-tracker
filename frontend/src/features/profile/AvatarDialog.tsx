@@ -14,7 +14,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { type ChangeEvent, useRef, useState } from 'react';
 import { messages } from '../../i18n/messages';
 import { getApiErrorMessage } from '../../lib/api/errors';
-import { ambientBackground, brandGradient } from '../../theme/brand';
+import { ambientBackground, brandGradient, dialogPaperSx } from '../../theme/brand';
 import type { User } from '../auth/api';
 import { useRemoveAvatar, useSetAvatarPreset, useUploadAvatar } from './api';
 import { AvatarIllustration } from './AvatarIllustration';
@@ -64,16 +64,7 @@ export function AvatarDialog({ user, onClose }: { user: User; onClose: () => voi
       fullWidth
       maxWidth="sm"
       aria-labelledby="avatar-dialog-title"
-      slotProps={{
-        paper: {
-          sx: (theme) => ({
-            borderRadius: fullScreen ? 0 : 4,
-            backgroundImage: 'none',
-            bgcolor: 'background.default',
-            border: fullScreen ? 'none' : `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
-          }),
-        },
-      }}
+      slotProps={{ paper: { sx: (theme) => dialogPaperSx(theme, fullScreen) } }}
     >
       <Box
         sx={(theme) => ({

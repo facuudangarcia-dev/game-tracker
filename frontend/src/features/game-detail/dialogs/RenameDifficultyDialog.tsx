@@ -1,3 +1,4 @@
+import TuneIcon from '@mui/icons-material/Tune';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { FormDialog } from '../../../components/FormDialog';
@@ -35,6 +36,7 @@ export function RenameDifficultyDialog({
 
   return (
     <FormDialog
+      icon={<TuneIcon />}
       open
       title={t.renameTitle}
       onClose={onClose}

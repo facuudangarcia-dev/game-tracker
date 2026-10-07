@@ -1,3 +1,4 @@
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
@@ -71,6 +72,8 @@ export function PlatinumDialog({
 
   return (
     <FormDialog
+      icon={<EmojiEventsIcon />}
+      eyebrow={userGame.game.name}
       open
       title={t.edit}
       onClose={onClose}

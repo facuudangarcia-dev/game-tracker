@@ -16,7 +16,7 @@ import { type Choice, ChoiceChips } from '../../components/ChoiceChips';
 import { messages } from '../../i18n/messages';
 import { getApiErrorMessage } from '../../lib/api/errors';
 import { todayLocal } from '../../lib/dates';
-import { ambientBackground, brandGradient, statusColor } from '../../theme/brand';
+import { ambientBackground, dialogPaperSx, primaryActionSx, statusColor } from '../../theme/brand';
 import { useAddUserGame } from './queries';
 import type { GameSource, Platform, PlayStatus, UserGameDetails } from './types';
 import {
@@ -170,18 +170,7 @@ export function AddToLibraryDialog({
       fullWidth
       maxWidth="sm"
       aria-labelledby="add-to-library-title"
-      slotProps={{
-        paper: {
-          sx: (theme) => ({
-            borderRadius: fullScreen ? 0 : 4,
-            overflow: 'hidden',
-            backgroundImage: 'none',
-            bgcolor: 'background.default',
-            border: fullScreen ? 'none' : `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
-            boxShadow: `0 40px 90px -30px ${alpha(theme.palette.primary.main, 0.55)}`,
-          }),
-        },
-      }}
+      slotProps={{ paper: { sx: (theme) => dialogPaperSx(theme, fullScreen) } }}
     >
       <Box
         component="form"
@@ -407,14 +396,7 @@ export function AddToLibraryDialog({
             size="large"
             startIcon={<AddIcon />}
             loading={mutation.isPending}
-            sx={(theme) => ({
-              px: 3.5,
-              fontWeight: 800,
-              color: theme.palette.common.white,
-              background: brandGradient(theme, 110),
-              boxShadow: `0 12px 28px -12px ${alpha(theme.palette.primary.main, 0.9)}`,
-              '&:hover': { background: brandGradient(theme, 110), filter: 'brightness(1.08)' },
-            })}
+            sx={(theme) => primaryActionSx(theme)}
           >
             {t.submit}
           </Button>

@@ -82,3 +82,54 @@ export const posterLinkSx = {
     '&:hover .card-media, &:hover .card-media img': { transform: 'none' },
   },
 } as const;
+
+/** Tone of a dialog: regular, or "danger" for destructive confirmations. */
+export type DialogTone = 'default' | 'danger';
+
+/** Main color of a dialog tone. */
+export function toneColor(theme: Theme, tone: DialogTone): string {
+  return tone === 'danger' ? theme.palette.error.main : theme.palette.primary.main;
+}
+
+/**
+ * Surface of every dialog (reference: "Agregar juego"): dark, subtle border, soft
+ * glow in the tone's color, and form fields in Game Tracker's style.
+ */
+export function dialogPaperSx(theme: Theme, fullScreen: boolean, tone: DialogTone = 'default') {
+  const color = toneColor(theme, tone);
+  return {
+    borderRadius: fullScreen ? 0 : 4,
+    overflow: 'hidden',
+    backgroundImage: 'none',
+    bgcolor: 'background.default',
+    border: fullScreen ? 'none' : `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
+    boxShadow: `0 40px 90px -30px ${alpha(color, 0.55)}`,
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 2,
+      bgcolor: alpha(theme.palette.common.white, 0.03),
+      '& fieldset': { borderColor: alpha(theme.palette.common.white, 0.12) },
+      '&:hover fieldset': { borderColor: alpha(theme.palette.primary.main, 0.6) },
+    },
+  } as const;
+}
+
+/** Main action of a dialog: the brand gradient, or a red one for destructive actions. */
+export function primaryActionSx(theme: Theme, tone: DialogTone = 'default') {
+  const background =
+    tone === 'danger'
+      ? `linear-gradient(110deg, ${theme.palette.error.light} 0%, ${theme.palette.error.dark} 100%)`
+      : brandGradient(theme, 110);
+  return {
+    px: 3,
+    fontWeight: 800,
+    color: theme.palette.common.white,
+    background,
+    boxShadow: `0 12px 28px -12px ${alpha(toneColor(theme, tone), 0.9)}`,
+    '&:hover': { background, filter: 'brightness(1.08)' },
+    '&.Mui-disabled': {
+      background: alpha(theme.palette.common.white, 0.08),
+      color: theme.palette.text.disabled,
+      boxShadow: 'none',
+    },
+  } as const;
+}

@@ -201,6 +201,7 @@ function DetailDialogs({ userGame, action, onClose, onSaved }: DetailDialogsProp
       return (
         <DeleteDifficultyDialog
           userGameId={userGame.id}
+          gameName={userGame.game.name}
           difficultyId={action.difficulty.id}
           name={action.difficulty.name}
           onClose={onClose}
@@ -225,9 +226,11 @@ function DeleteConfirm({
   onSaved: () => void;
 }) {
   const mutation = useGameMutation(userGame.id, mutate);
+  const gameName = userGame.game.name;
   return (
     <ConfirmDialog
       open
+      eyebrow={gameName}
       title={title}
       body={body}
       pending={mutation.isPending}
@@ -240,11 +243,13 @@ function DeleteConfirm({
 
 function DeleteDifficultyDialog({
   userGameId,
+  gameName,
   difficultyId,
   name,
   onClose,
 }: {
   userGameId: string;
+  gameName: string;
   difficultyId: string;
   name: string;
   onClose: () => void;
@@ -255,6 +260,7 @@ function DeleteDifficultyDialog({
   return (
     <ConfirmDialog
       open
+      eyebrow={gameName}
       title={t.difficulties.delete(name)}
       body={t.difficulties.deleteBody(name)}
       pending={mutation.isPending}
@@ -275,6 +281,7 @@ function DeleteGameDialog({
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const gameName = userGame.game.name;
   const mutation = useMutation({
     mutationFn: () => detailApi.deleteGame(userGame.id),
     onSuccess: async () => {
@@ -286,6 +293,7 @@ function DeleteGameDialog({
   return (
     <ConfirmDialog
       open
+      eyebrow={gameName}
       title={t.deleteGame}
       body={t.deleteGameBody(userGame.game.name, userGame.platform.name)}
       pending={mutation.isPending}

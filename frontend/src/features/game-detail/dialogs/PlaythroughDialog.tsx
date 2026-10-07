@@ -1,3 +1,4 @@
+import FlagIcon from '@mui/icons-material/Flag';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { FormDialog } from '../../../components/FormDialog';
@@ -70,6 +71,8 @@ export function PlaythroughDialog({
 
   return (
     <FormDialog
+      icon={<FlagIcon />}
+      eyebrow={userGame.game.name}
       open
       title={playthrough ? t.title(playthrough.number) : t.createTitle}
       onClose={onClose}

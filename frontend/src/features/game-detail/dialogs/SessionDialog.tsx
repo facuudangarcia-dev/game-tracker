@@ -1,3 +1,4 @@
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { durationFromMinutes } from '../../../components/duration';
@@ -76,6 +77,8 @@ export function SessionDialog({
 
   return (
     <FormDialog
+      icon={<ScheduleIcon />}
+      eyebrow={userGame.game.name}
       open
       title={session ? t.editTitle : t.createTitle}
       onClose={onClose}

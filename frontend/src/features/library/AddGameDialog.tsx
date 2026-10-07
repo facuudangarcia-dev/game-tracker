@@ -1,24 +1,27 @@
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import SearchIcon from '@mui/icons-material/Search';
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
+import InputAdornment from '@mui/material/InputAdornment';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { type FormEvent, useState } from 'react';
+import { DialogFooter, DialogHeader } from '../../components/DialogChrome';
 import { messages } from '../../i18n/messages';
+import { brandGradient, dialogPaperSx, primaryActionSx } from '../../theme/brand';
 import { formatYear } from '../../lib/format';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
 import { GameCover } from './GameCover';
@@ -105,74 +108,140 @@ export function AddGameDialog({
   };
 
   return (
-    <Dialog open={open} onClose={close} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <form onSubmit={continueManual} noValidate>
-        <DialogTitle>{t.title}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ pt: 1 }}>
-            <ToggleButtonGroup
-              exclusive
-              fullWidth
-              size="small"
-              color="primary"
-              aria-label={t.modeLabel}
-              value={mode}
-              onChange={(_e, value: Mode | null) => value && setMode(value)}
-            >
-              <ToggleButton value="catalog">{t.catalogMode}</ToggleButton>
-              <ToggleButton value="manual">{t.manualMode}</ToggleButton>
-            </ToggleButtonGroup>
+    <Dialog
+      open={open}
+      onClose={close}
+      fullScreen={fullScreen}
+      fullWidth
+      maxWidth="sm"
+      aria-labelledby="add-game-title"
+      slotProps={{ paper: { sx: (theme) => dialogPaperSx(theme, fullScreen) } }}
+    >
+      <Box
+        component="form"
+        onSubmit={continueManual}
+        noValidate
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: fullScreen ? '100%' : undefined,
+        }}
+      >
+        <DialogHeader
+          titleId="add-game-title"
+          title={t.title}
+          eyebrow={messages.library.title}
+          icon={<SportsEsportsIcon />}
+          onClose={close}
+        />
+        <Stack spacing={2.5} sx={{ px: 3, pt: 3, pb: 3, flex: 1 }}>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            aria-label={t.modeLabel}
+            value={mode}
+            onChange={(_e, value: Mode | null) => value && setMode(value)}
+            sx={(theme) => ({
+              p: 0.5,
+              gap: 0.5,
+              borderRadius: 99,
+              bgcolor: alpha(theme.palette.common.white, 0.04),
+              border: `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
+              '& .MuiToggleButton-root': {
+                border: 'none',
+                borderRadius: '99px !important',
+                py: 1,
+                gap: 1,
+                fontWeight: 700,
+                color: 'text.secondary',
+              },
+              '& .MuiToggleButton-root.Mui-selected': {
+                color: theme.palette.common.white,
+                background: brandGradient(theme, 110),
+                boxShadow: `0 8px 20px -10px ${alpha(theme.palette.primary.main, 0.9)}`,
+              },
+              '& .MuiToggleButton-root.Mui-selected:hover': {
+                background: brandGradient(theme, 110),
+              },
+            })}
+          >
+            <ToggleButton value="catalog">
+              <SearchIcon fontSize="small" aria-hidden />
+              {t.catalogMode}
+            </ToggleButton>
+            <ToggleButton value="manual">
+              <EditNoteIcon fontSize="small" aria-hidden />
+              {t.manualMode}
+            </ToggleButton>
+          </ToggleButtonGroup>
 
-            {mode === 'catalog' ? (
-              <>
-                <TextField
-                  label={t.searchLabel}
-                  type="search"
-                  autoFocus
-                  fullWidth
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  helperText={
-                    query.trim().length < SEARCH_MIN_LENGTH
-                      ? t.searchHint(SEARCH_MIN_LENGTH)
-                      : t.openCatalogHint
-                  }
-                />
-                <SearchResults
-                  isFetching={search.isFetching}
-                  isError={search.isError}
-                  data={search.data}
-                  enabled={debouncedQuery.trim().length >= SEARCH_MIN_LENGTH}
-                  onSelect={selectResult}
-                />
-              </>
-            ) : (
+          {mode === 'catalog' ? (
+            <>
               <TextField
-                label={t.nameLabel}
-                required
+                label={t.searchLabel}
+                type="search"
                 autoFocus
                 fullWidth
-                value={manualName}
-                onChange={(e) => {
-                  setManualName(e.target.value);
-                  setNameError(undefined);
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                helperText={
+                  query.trim().length < SEARCH_MIN_LENGTH
+                    ? t.searchHint(SEARCH_MIN_LENGTH)
+                    : t.openCatalogHint
+                }
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon color="primary" />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
-                error={Boolean(nameError)}
-                helperText={nameError ?? t.manualHelp}
-                slotProps={{ htmlInput: { maxLength: GAME_NAME_MAX_LENGTH } }}
               />
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={close}>{messages.common.cancel}</Button>
+              <SearchResults
+                isFetching={search.isFetching}
+                isError={search.isError}
+                data={search.data}
+                enabled={debouncedQuery.trim().length >= SEARCH_MIN_LENGTH}
+                onSelect={selectResult}
+              />
+            </>
+          ) : (
+            <TextField
+              label={t.nameLabel}
+              required
+              autoFocus
+              fullWidth
+              value={manualName}
+              onChange={(e) => {
+                setManualName(e.target.value);
+                setNameError(undefined);
+              }}
+              error={Boolean(nameError)}
+              helperText={nameError ?? t.manualHelp}
+              slotProps={{ htmlInput: { maxLength: GAME_NAME_MAX_LENGTH } }}
+            />
+          )}
+        </Stack>
+        <DialogFooter>
+          <Button onClick={close} color="inherit">
+            {messages.common.cancel}
+          </Button>
           {mode === 'manual' ? (
-            <Button type="submit" variant="contained" disabled={manualName.trim() === ''}>
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              disabled={manualName.trim() === ''}
+              sx={(theme) => primaryActionSx(theme)}
+            >
               {t.continue}
             </Button>
           ) : null}
-        </DialogActions>
-      </form>
+        </DialogFooter>
+      </Box>
     </Dialog>
   );
 }
@@ -224,7 +293,14 @@ function SearchResults({ enabled, isFetching, isError, data, onSelect }: SearchR
         <List
           aria-label={t.results}
           dense
-          sx={{ maxHeight: { xs: 'none', sm: 320 }, overflowY: 'auto', mx: -1 }}
+          sx={(theme) => ({
+            maxHeight: { xs: 'none', sm: 340 },
+            overflowY: 'auto',
+            p: 0.75,
+            borderRadius: 2.5,
+            bgcolor: alpha(theme.palette.common.white, 0.02),
+            border: `1px solid ${alpha(theme.palette.common.white, 0.07)}`,
+          })}
         >
           {data.results.map((result) => {
             const year = formatYear(result.releaseDate);
@@ -233,7 +309,12 @@ function SearchResults({ enabled, isFetching, isError, data, onSelect }: SearchR
               <ListItemButton
                 key={resultKey(result)}
                 onClick={() => onSelect(result)}
-                sx={{ gap: 1.5, borderRadius: 1 }}
+                sx={(theme) => ({
+                  gap: 1.5,
+                  borderRadius: 2,
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
+                  '& + &': { mt: 0.25 },
+                })}
               >
                 <GameCover src={result.coverUrl} name={result.name} width={40} />
                 <ListItemText

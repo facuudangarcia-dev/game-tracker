@@ -1,3 +1,5 @@
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -46,6 +48,8 @@ export function ManualTimeDialog({ userGame, playthrough, onClose, onSaved }: Ti
 
   return (
     <FormDialog
+      icon={<TimerOutlinedIcon />}
+      eyebrow={userGame.game.name}
       open
       title={`${t.manualTitle} — ${messages.detail.playthroughs.title(playthrough.number)}`}
       onClose={onClose}
@@ -95,6 +99,8 @@ export function TimeModeDialog({ userGame, playthrough, onClose, onSaved }: Time
 
   return (
     <FormDialog
+      icon={<SwapHorizIcon />}
+      eyebrow={userGame.game.name}
       open
       title={`${t.modeTitle} — ${messages.detail.playthroughs.title(playthrough.number)}`}
       onClose={onClose}

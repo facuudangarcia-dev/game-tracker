@@ -338,6 +338,24 @@ describe('game detail page', () => {
     expect(calls.some((c) => c.method === 'DELETE' && c.path === '/library/ug-1')).toBe(true);
   });
 
+  it('shows the dialogs with their title and the game as context, closable without acting', async () => {
+    const { calls } = renderDetail(buildGame());
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar juego' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Eliminar juego' });
+    expect(within(confirm).getByText('Bloodborne')).toBeInTheDocument();
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Cerrar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar juego' }));
+    const edit = await screen.findByRole('dialog', { name: 'Editar juego' });
+    expect(within(edit).getByText('Bloodborne')).toBeInTheDocument();
+    await userEvent.click(within(edit).getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+  });
+
   it('explains when the game is not in the library', async () => {
     mockApi({
       'GET /auth/me': me,

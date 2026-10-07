@@ -1,3 +1,4 @@
+import EditIcon from '@mui/icons-material/Edit';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
@@ -45,6 +46,8 @@ export function EditUserGameDialog({
 
   return (
     <FormDialog
+      icon={<EditIcon />}
+      eyebrow={userGame.game.name}
       open
       title={t.title}
       onClose={onClose}

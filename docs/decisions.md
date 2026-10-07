@@ -205,3 +205,7 @@ decisiones técnicas que afectan el comportamiento.
     platino y dificultades al costado. Para pedir el artwork, el detalle de un juego de la
     biblioteca expone su `provider` y `externalId` (null en juegos manuales). Sin cambios de datos
     ni de lógica. El modal "Agregar juego" ya no repite la portada (se ve en la página de atrás).
+60. **Modales unificados:** todos comparten superficie (`dialogPaperSx`), encabezado con ícono,
+    contexto y título, pie de acciones y botón principal en degradé (`DialogChrome`, `FormDialog`).
+    Las confirmaciones destructivas usan la variante de peligro (rojo). Se agregó un botón "Cerrar"
+    en el encabezado, equivalente a "Cancelar". Sin cambios de campos, validaciones ni lógica.
