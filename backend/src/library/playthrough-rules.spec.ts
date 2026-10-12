@@ -37,7 +37,6 @@ describe('playthrough rules', () => {
   });
 
   it.each([
-    [{ status: PlayStatus.Completed }, 'COMPLETION_DATE_REQUIRED'],
     [{ status: PlayStatus.Pending, completionDate: '2025-01-01' }, 'COMPLETION_DATE_NOT_ALLOWED'],
     [
       { status: PlayStatus.InProgress, completionDate: '2025-01-01' },

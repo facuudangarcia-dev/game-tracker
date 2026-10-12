@@ -6,6 +6,7 @@ import type {
   UserGameListItemDto,
 } from '../src/library/dto/user-game-response.dto';
 import { Genre } from '../src/genres/genre.entity';
+import { DifficultyKind } from '../src/library/difficulty.entity';
 import { Platform } from '../src/platforms/platform.entity';
 import { createTestApp } from './create-test-app';
 import type { FakeCatalogProvider } from './fake-catalog-provider';
@@ -57,8 +58,8 @@ describe('Library list: search, filters and sort (e2e)', () => {
       })
       .expect(200);
     await fg
-      .put(`/api/library/${fallGuys.id}/playthroughs/${fallGuys.playthroughs[0].id}/manual-time`, {
-        minutes: 100,
+      .patch(`/api/library/${fallGuys.id}/playthroughs/${fallGuys.playthroughs[0].id}`, {
+        previousMinutes: 100,
       })
       .expect(200);
 
@@ -76,12 +77,9 @@ describe('Library list: search, filters and sort (e2e)', () => {
       })
       .expect(200);
     await fg
-      .put(
-        `/api/library/${bloodborne.id}/playthroughs/${bloodborne.playthroughs[0].id}/manual-time`,
-        {
-          minutes: 900,
-        },
-      )
+      .patch(`/api/library/${bloodborne.id}/playthroughs/${bloodborne.playthroughs[0].id}`, {
+        previousMinutes: 900,
+      })
       .expect(200);
     await fg.patch(`/api/library/${bloodborne.id}`, { rating: 95 }).expect(200);
     await fg
@@ -127,6 +125,52 @@ describe('Library list: search, filters and sort (e2e)', () => {
       rating: 95,
       platinumAchieved: true,
     });
+  });
+
+  it("shows the hardest difficulty played, with its place in the game's list", async () => {
+    // Pending games, or games without a difficulty, show none.
+    expect((await list({ sort: 'name', order: 'asc' })).map((i) => i.difficulty)).toEqual([
+      null,
+      null,
+      null,
+    ]);
+
+    const game = (
+      await as(app, alice)
+        .post('/api/library', {
+          manualGame: { name: 'Hades' },
+          platformId: platformIds.ps5,
+          initialPlaythrough: { status: 'COMPLETED', difficulty: 'Normal' },
+        })
+        .expect(201)
+    ).body as UserGameDetailsDto;
+    const id = (name: string) =>
+      game.difficulties.find((d) => d.kind === DifficultyKind.Playthrough && d.name === name)!.id;
+    const client = as(app, alice);
+    // A pending playthrough on "Muy difícil" doesn't count; one in progress on "Difícil" does.
+    await client
+      .post(`/api/library/${game.id}/playthroughs`, { difficultyId: id('Muy difícil') })
+      .expect(201);
+    await client
+      .post(`/api/library/${game.id}/playthroughs`, {
+        status: 'IN_PROGRESS',
+        difficultyId: id('Difícil'),
+      })
+      .expect(201);
+
+    const hades = async () => (await list({ search: 'Hades' }))[0].difficulty;
+    expect(await hades()).toEqual({ name: 'Difícil', level: 3, levels: 5 });
+
+    // The level follows the list's order.
+    const order = ['Difícil', 'Muy fácil', 'Fácil', 'Normal', 'Muy difícil'].map(id);
+    await client
+      .put(`/api/library/${game.id}/difficulties/order`, { kind: 'PLAYTHROUGH', ids: order })
+      .expect(200);
+    expect(await hades()).toEqual({ name: 'Normal', level: 3, levels: 5 });
+
+    const details = (await client.get(`/api/library/${game.id}`).expect(200))
+      .body as UserGameDetailsDto;
+    expect(details.difficulty).toEqual({ name: 'Normal', level: 3, levels: 5 });
   });
 
   it('searches by name, case-insensitively and with literal wildcards', async () => {

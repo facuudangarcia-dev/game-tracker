@@ -2,22 +2,19 @@ import { ViewColumn, ViewEntity } from 'typeorm';
 import type { PlayStatus } from './library.constants';
 
 /**
- * Time of each playthrough in minutes: the manual time in MANUAL mode, the sum
- * of its sessions in SESSIONS mode (never mixed). Single source of truth for
- * playtime; everything else sums these values.
+ * Time of each playthrough in minutes: its previous time plus its Steam time
+ * plus the sum of all its sessions (docs/decisions.md #61, #78). Single source
+ * of truth for playtime; everything else sums these values.
  */
 @ViewEntity({
   name: 'playthrough_times',
   expression: `
     SELECT p.id AS playthrough_id,
            p.user_game_id AS user_game_id,
-           (CASE
-              WHEN p.time_mode = 'MANUAL' THEN p.manual_time_minutes
-              ELSE COALESCE(
-                (SELECT sum(s.duration_minutes) FROM gaming_sessions s WHERE s.playthrough_id = p.id),
-                0
-              )
-            END)::int AS minutes
+           (p.previous_time_minutes + p.steam_minutes + COALESCE(
+              (SELECT sum(s.duration_minutes) FROM gaming_sessions s WHERE s.playthrough_id = p.id),
+              0
+            ))::int AS minutes
     FROM playthroughs p
   `,
 })
@@ -35,7 +32,7 @@ export class PlaythroughTime {
 /**
  * Values derived from a UserGame's playthroughs (never stored):
  * - status: IN_PROGRESS if any is in progress, else COMPLETED if any is
- *   completed, else PENDING;
+ *   completed, else PLAYED if any was played (decision #77), else PENDING;
  * - start date: earliest playthrough start;
  * - completion date: FIRST date any playthrough was completed (not the last);
  * - total minutes: sum of playthrough times.
@@ -49,6 +46,7 @@ export class PlaythroughTime {
            CASE
              WHEN bool_or(p.status = 'IN_PROGRESS') THEN 'IN_PROGRESS'
              WHEN bool_or(p.status = 'COMPLETED') THEN 'COMPLETED'
+             WHEN bool_or(p.status = 'PLAYED') THEN 'PLAYED'
              ELSE 'PENDING'
            END AS status,
            to_char(min(p.start_date), 'YYYY-MM-DD') AS start_date,

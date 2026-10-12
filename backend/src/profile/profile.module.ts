@@ -7,5 +7,6 @@ import { ProfileService } from './profile.service';
   imports: [AssetsModule],
   controllers: [ProfileController],
   providers: [ProfileService],
+  exports: [ProfileService],
 })
 export class ProfileModule {}

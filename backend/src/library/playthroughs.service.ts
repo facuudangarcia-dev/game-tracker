@@ -5,11 +5,14 @@ import { apiError } from '../common/api-error';
 import { DifficultiesService } from './difficulties.service';
 import { DifficultyKind } from './difficulty.entity';
 import type { CreatePlaythroughDto, UpdatePlaythroughDto } from './dto/playthrough.dto';
-import { LibraryErrorCode, PlayStatus, TimeMode } from './library.constants';
+import { LibraryErrorCode, PlayStatus } from './library.constants';
 import { assertValidPlaythroughDates, resolveCompletionDate } from './playthrough-rules';
 import { PlatinumService } from './platinum.service';
 import { Playthrough } from './playthrough.entity';
+import { PlaythroughTimeAdjustment } from './playthrough-time-adjustment.entity';
 import { UserGameAccess } from './user-game-access.service';
+import { ActivityType } from '../activity/activity.entity';
+import { ActivityService } from '../activity/activity.service';
 
 @Injectable()
 export class PlaythroughsService {
@@ -19,7 +22,18 @@ export class PlaythroughsService {
     private readonly access: UserGameAccess,
     private readonly difficulties: DifficultiesService,
     private readonly platinum: PlatinumService,
+    private readonly activity: ActivityService,
   ) {}
+
+  /** A playthrough became in progress, completed or played (decision #86). */
+  private async recordStatus(userId: string, userGameId: string, status: PlayStatus) {
+    if (status !== PlayStatus.Pending) {
+      await this.activity.record(userId, ActivityType.StatusChanged, {
+        userGameId,
+        data: { status },
+      });
+    }
+  }
 
   /** "+ Nueva partida": numbered by the backend (#2, #3...), manual time by default. */
   async create(userId: string, userGameId: string, dto: CreatePlaythroughDto): Promise<void> {
@@ -41,6 +55,7 @@ export class PlaythroughsService {
       );
     }
 
+    assertTimeNotNegative(dto.previousMinutes ?? 0, 0);
     await this.dataSource.transaction(async (manager) => {
       // Serializes concurrent creations for this UserGame, so numbers never clash.
       await manager.query('SELECT id FROM user_games WHERE id = $1 FOR UPDATE', [userGameId]);
@@ -51,17 +66,23 @@ export class PlaythroughsService {
         .where('p.user_game_id = :userGameId', { userGameId })
         .getRawOne<{ max: number }>())!;
 
-      await manager.getRepository(Playthrough).insert({
+      const { identifiers } = await manager.getRepository(Playthrough).insert({
         userGameId,
         number: Number(max) + 1,
         name: dto.name ?? null,
         difficultyId: dto.difficultyId ?? null,
         notes: dto.notes ?? null,
-        timeMode: TimeMode.Manual,
-        manualTimeMinutes: 0,
+        previousTimeMinutes: dto.previousMinutes ?? 0,
         ...state,
       });
+      if (dto.previousMinutes) {
+        await manager.getRepository(PlaythroughTimeAdjustment).insert({
+          playthroughId: (identifiers[0] as { id: string }).id,
+          deltaMinutes: dto.previousMinutes,
+        });
+      }
     });
+    await this.recordStatus(userId, userGameId, state.status);
   }
 
   async update(
@@ -88,15 +109,33 @@ export class PlaythroughsService {
       );
     }
 
-    await this.playthroughs.update(
-      { id: playthrough.id },
-      {
-        ...state,
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.difficultyId !== undefined && { difficultyId: dto.difficultyId }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
-      },
-    );
+    if (dto.previousMinutes !== undefined) {
+      assertTimeNotNegative(dto.previousMinutes, playthrough.steamMinutes);
+    }
+    const delta =
+      dto.previousMinutes !== undefined ? dto.previousMinutes - playthrough.previousTimeMinutes : 0;
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(Playthrough).update(
+        { id: playthrough.id },
+        {
+          ...state,
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.difficultyId !== undefined && { difficultyId: dto.difficultyId }),
+          ...(dto.notes !== undefined && { notes: dto.notes }),
+          ...(dto.previousMinutes !== undefined && { previousTimeMinutes: dto.previousMinutes }),
+        },
+      );
+      // History of the user's time changes (decision #78).
+      if (delta !== 0) {
+        await manager
+          .getRepository(PlaythroughTimeAdjustment)
+          .insert({ playthroughId: playthrough.id, deltaMinutes: delta });
+      }
+    });
+    if (state.status !== playthrough.status) {
+      await this.recordStatus(userId, userGameId, state.status);
+    }
   }
 
   /** Later playthroughs can be deleted (with their sessions); #1 never. */
@@ -128,5 +167,16 @@ export class PlaythroughsService {
       );
     }
     return playthrough;
+  }
+}
+
+/** A playthrough's time never goes below zero: on Steam games, never below Steam's time. */
+function assertTimeNotNegative(previousMinutes: number, steamMinutes: number): void {
+  if (previousMinutes + steamMinutes < 0) {
+    throw apiError(
+      HttpStatus.BAD_REQUEST,
+      LibraryErrorCode.PlaythroughTimeNegative,
+      "The playthrough's time cannot be negative",
+    );
   }
 }

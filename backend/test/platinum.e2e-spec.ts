@@ -87,6 +87,30 @@ describe('Platinum (e2e)', () => {
     expect(list[0].platinumAchieved).toBe(true);
   });
 
+  it('checks every pending achievement on the platinum date and leaves them when removed', async () => {
+    const add = (name: string) => as(app, alice).post(url('/achievements'), { name }).expect(201);
+    await add('Sin morir');
+    const withTwo = (await add('Speedrun')).body as UserGameDetailsDto;
+    const early = withTwo.achievementList[0];
+    await as(app, alice)
+      .patch(url(`/achievements/${early.id}`), { achieved: true })
+      .expect(200);
+    const earlyAt = ((await as(app, alice).get(url()).expect(200)).body as UserGameDetailsDto)
+      .achievementList[0].achievedAt;
+
+    const body = (
+      await putPlatinum({ achieved: true, date: '2025-04-10', timeMinutes: 60 }).expect(200)
+    ).body as UserGameDetailsDto;
+    expect(body.achievementList.map((a) => [a.achieved, a.achievedAt])).toEqual([
+      [true, earlyAt],
+      [true, '2025-04-10T00:00:00.000Z'],
+    ]);
+    expect(body.achievements).toEqual({ achieved: 2, total: 2 });
+
+    const removed = (await putPlatinum({ achieved: false }).expect(200)).body as UserGameDetailsDto;
+    expect(removed.achievementList.every((a) => a.achieved)).toBe(true);
+  });
+
   it.each([
     [{ achieved: true, timeMinutes: 60 }, 'PLATINUM_DATE_REQUIRED'],
     [{ achieved: true, date: '2025-01-01' }, 'PLATINUM_TIME_REQUIRED'],

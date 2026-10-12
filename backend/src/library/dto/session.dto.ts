@@ -1,6 +1,4 @@
-import { Type } from 'class-transformer';
 import {
-  IsEnum,
   IsInt,
   IsISO8601,
   IsOptional,
@@ -9,9 +7,8 @@ import {
   MaxLength,
   Min,
   ValidateIf,
-  ValidateNested,
 } from 'class-validator';
-import { MAX_MINUTES, NOTE_MAX_LENGTH, TimeMode } from '../library.constants';
+import { MAX_MINUTES, NOTE_MAX_LENGTH } from '../library.constants';
 import { BlankToNull } from './validation';
 
 export class CreateSessionDto {
@@ -49,33 +46,6 @@ export class UpdateSessionDto {
   notes?: string | null;
 }
 
-/** Explicit action to edit the time of a MANUAL playthrough (integer minutes). */
-export class SetManualTimeDto {
-  @IsInt()
-  @Min(0)
-  @Max(MAX_MINUTES)
-  minutes: number;
-}
-
-export class InitialSessionDto {
-  @IsISO8601({ strict: true })
-  playedAt: string;
-}
-
-export class ChangeTimeModeDto {
-  @IsEnum(TimeMode)
-  mode: TimeMode;
-
-  /**
-   * MANUAL → SESSIONS only: turns the existing manual time into a first session
-   * played at this moment, so no time is lost.
-   */
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => InitialSessionDto)
-  initialSession?: InitialSessionDto;
-}
-
 export interface SessionResponseDto {
   id: string;
   playthroughId: string;
@@ -83,6 +53,4 @@ export interface SessionResponseDto {
   playedAt: string;
   durationMinutes: number;
   notes: string | null;
-  /** False while its playthrough is in MANUAL mode (kept, but not counted). */
-  countsTowardTime: boolean;
 }

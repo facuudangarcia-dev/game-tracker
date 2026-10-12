@@ -11,6 +11,8 @@ import { formatDate, formatMinutes } from '../../../lib/format';
 import type { UserGameDetails } from '../../library/types';
 import type { OnDetailAction } from '../detailActions';
 import { Facts } from './MyGameSection';
+import { DifficultyValue } from './PlaythroughInlineEdit';
+import { ink } from '../../../theme/brand';
 
 const t = messages.detail.platinum;
 
@@ -47,7 +49,7 @@ export function PlatinumSection({
               placeItems: 'center',
               background: platinum.achieved
                 ? `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.35)}, transparent 70%)`
-                : alpha(theme.palette.common.white, 0.04),
+                : alpha(ink(theme), 0.04),
             })}
           >
             <EmojiEventsIcon
@@ -80,7 +82,16 @@ export function PlatinumSection({
                   ? messages.common.notSet
                   : formatMinutes(platinum.timeMinutes),
               ],
-              [t.difficulty, platinum.difficulty?.name ?? t.noDifficulty],
+              [
+                t.difficulty,
+                <DifficultyValue
+                  key="difficulty"
+                  userGame={userGame}
+                  kind="PLATINUM"
+                  difficulty={platinum.difficulty}
+                  empty={t.noDifficulty}
+                />,
+              ],
             ]}
           />
         ) : null}

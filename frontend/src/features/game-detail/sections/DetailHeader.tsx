@@ -9,7 +9,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import { alpha, type Theme } from '@mui/material/styles';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { type ReactNode, useState } from 'react';
 import { genreName } from '../../../i18n/genres';
@@ -19,10 +18,12 @@ import {
   ambientBackground,
   brandGradient,
   glassSx,
+  ink,
   reducedMotion,
   statusColor,
 } from '../../../theme/brand';
 import { useCatalogGame } from '../../catalog/queries';
+import { FavoriteButton } from '../../library/FavoriteButton';
 import { GameCover } from '../../library/GameCover';
 import type { UserGameDetails } from '../../library/types';
 import { DIFFICULTIES_SECTION_ID, type OnDetailAction } from '../detailActions';
@@ -95,7 +96,6 @@ export function DetailHeader({
   onAction: OnDetailAction;
 }) {
   const { game } = userGame;
-  const canLogSession = userGame.playthroughs.some((p) => p.timeMode === 'SESSIONS');
   const year = formatYear(game.releaseDate);
   const genres = game.genres.map(genreName);
   // The artwork comes from the catalog (manual games have none: their cover, blurred).
@@ -117,7 +117,7 @@ export function DetailHeader({
         isolation: 'isolate',
         overflow: 'hidden',
         borderRadius: { xs: 3, md: 4 },
-        border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+        border: `1px solid ${alpha(ink(theme), 0.08)}`,
         background: ambientBackground(theme),
         p: { xs: 2.5, sm: 4, md: 5 },
         pt: { xs: 14, sm: 16, md: 6 },
@@ -177,7 +177,7 @@ export function DetailHeader({
             flexShrink: 0,
             borderRadius: 2,
             overflow: 'hidden',
-            boxShadow: `0 30px 60px -20px rgba(0,0,0,0.9), 0 0 0 1px ${alpha(theme.palette.common.white, 0.14)}`,
+            boxShadow: `0 30px 60px -20px rgba(0,0,0,0.9), 0 0 0 1px ${alpha(ink(theme), 0.14)}`,
           })}
         >
           <GameCover
@@ -332,6 +332,12 @@ export function DetailHeader({
             >
               {t.editGame}
             </Button>
+            <FavoriteButton
+              userGameId={userGame.id}
+              name={game.name}
+              favorite={userGame.favorite}
+              variant="header"
+            />
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
@@ -340,19 +346,14 @@ export function DetailHeader({
             >
               {t.newPlaythrough}
             </Button>
-            <Tooltip title={canLogSession ? '' : t.logSessionDisabled}>
-              <Box component="span">
-                <Button
-                  variant="outlined"
-                  startIcon={<TimerOutlinedIcon />}
-                  disabled={!canLogSession}
-                  onClick={() => onAction({ type: 'newSession' })}
-                  sx={headerButtonSx}
-                >
-                  {t.logSession}
-                </Button>
-              </Box>
-            </Tooltip>
+            <Button
+              variant="outlined"
+              startIcon={<TimerOutlinedIcon />}
+              onClick={() => onAction({ type: 'newSession' })}
+              sx={headerButtonSx}
+            >
+              {t.logSession}
+            </Button>
             <Button
               variant="outlined"
               startIcon={<TuneIcon />}

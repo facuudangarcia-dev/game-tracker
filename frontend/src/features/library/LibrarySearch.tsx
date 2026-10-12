@@ -47,11 +47,9 @@ export function LibrarySearch({ filters, onChange }: LibrarySearchProps) {
             borderRadius: 99,
             height: 52,
             fontSize: '1.05rem',
+            // Border, hover and focus come from the theme; this one is just bigger.
             bgcolor: alpha(theme.palette.background.default, 0.6),
             backdropFilter: 'blur(10px)',
-            boxShadow: `0 12px 30px -18px ${alpha(theme.palette.primary.main, 0.7)}`,
-            '& fieldset': { borderColor: alpha(theme.palette.common.white, 0.14) },
-            '&:hover fieldset': { borderColor: alpha(theme.palette.primary.main, 0.6) },
           }),
         },
       }}

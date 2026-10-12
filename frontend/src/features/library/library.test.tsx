@@ -30,7 +30,11 @@ const libraryItem: UserGameListItem = {
   totalMinutes: 872,
   rating: 95,
   platinumAchieved: false,
+  favorite: false,
   createdAt: '2026-01-01T10:00:00.000Z',
+  difficulty: null,
+  steam: false,
+  achievements: null,
 };
 
 const me = () => ({ status: 200, body: testUser });

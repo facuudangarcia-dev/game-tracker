@@ -1,5 +1,14 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { NOTE_MAX_LENGTH, RATING_MAX, RATING_MIN } from '../library.constants';
 
 /** Blank notes are stored as null (no note). */
@@ -22,4 +31,9 @@ export class UpdateUserGameDto {
   @IsString()
   @MaxLength(NOTE_MAX_LENGTH)
   notes?: string | null;
+
+  /** Marks or unmarks the game as a favorite (null is not accepted). */
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  favorite?: boolean;
 }

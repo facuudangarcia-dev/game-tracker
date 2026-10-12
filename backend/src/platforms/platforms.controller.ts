@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { Public } from '../auth/decorators';
 import type { Platform } from './platform.entity';
 import { PlatformsService } from './platforms.service';
 
@@ -18,6 +19,8 @@ export function toPlatformResponse(platform: Platform): PlatformResponseDto {
   };
 }
 
+/** Reference data, public: the Explore filters work without an account (decision #64). */
+@Public()
 @Controller('platforms')
 export class PlatformsController {
   constructor(private readonly platforms: PlatformsService) {}

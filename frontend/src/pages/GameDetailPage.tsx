@@ -16,15 +16,14 @@ import { PlatinumDialog } from '../features/game-detail/dialogs/PlatinumDialog';
 import { PlaythroughDialog } from '../features/game-detail/dialogs/PlaythroughDialog';
 import { RenameDifficultyDialog } from '../features/game-detail/dialogs/RenameDifficultyDialog';
 import { SessionDialog } from '../features/game-detail/dialogs/SessionDialog';
-import { ManualTimeDialog, TimeModeDialog } from '../features/game-detail/dialogs/TimeDialogs';
 import { useDifficultyMutation, useGameMutation } from '../features/game-detail/mutations';
 import { DetailHeader } from '../features/game-detail/sections/DetailHeader';
+import { AchievementsSection } from '../features/game-detail/sections/AchievementsSection';
 import { DifficultiesSection } from '../features/game-detail/sections/DifficultiesSection';
 import { MyGameSection } from '../features/game-detail/sections/MyGameSection';
 import { NotesSection } from '../features/game-detail/sections/NotesSection';
 import { PlatinumSection } from '../features/game-detail/sections/PlatinumSection';
 import { PlaythroughsSection } from '../features/game-detail/sections/PlaythroughsSection';
-import { SessionsSection } from '../features/game-detail/sections/SessionsSection';
 import { libraryKeys, useUserGame } from '../features/library/queries';
 import type { UserGameDetails } from '../features/library/types';
 import { messages } from '../i18n/messages';
@@ -106,8 +105,8 @@ export function GameDetailPage() {
       {backLink}
       <DetailHeader userGame={userGame} onAction={setAction} />
       <MyGameSection userGame={userGame} />
-      {/* Your run (playthroughs, sessions, notes) as the main column; platinum and
-          difficulties on the side. */}
+      {/* Your run (playthroughs with their sessions, notes) as the main column;
+          platinum and difficulties on the side. */}
       <Box
         sx={{
           display: 'grid',
@@ -118,7 +117,7 @@ export function GameDetailPage() {
       >
         <Stack spacing={{ xs: 3, md: 4 }} sx={{ minWidth: 0 }}>
           <PlaythroughsSection userGame={userGame} onAction={setAction} />
-          <SessionsSection userGame={userGame} onAction={setAction} />
+          <AchievementsSection userGame={userGame} />
           <NotesSection userGame={userGame} onAction={setAction} />
         </Stack>
         <Stack spacing={{ xs: 3, md: 4 }} sx={{ minWidth: 0 }}>
@@ -170,10 +169,6 @@ function DetailDialogs({ userGame, action, onClose, onSaved }: DetailDialogsProp
           mutate={() => detailApi.deletePlaythrough(userGame.id, action.playthrough.id)}
         />
       );
-    case 'manualTime':
-      return <ManualTimeDialog {...common} playthrough={action.playthrough} />;
-    case 'timeMode':
-      return <TimeModeDialog {...common} playthrough={action.playthrough} />;
     case 'newSession':
       return <SessionDialog {...common} playthroughId={action.playthroughId} />;
     case 'editSession':

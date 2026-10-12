@@ -32,9 +32,15 @@ export function SessionDialog({
   onClose,
   onSaved,
 }: SessionDialogProps) {
-  // Sessions can only be added to playthroughs in SESSIONS mode.
-  const sessionPlaythroughs = userGame.playthroughs.filter((p) => p.timeMode === 'SESSIONS');
-  const [targetId, setTargetId] = useState(playthroughId ?? sessionPlaythroughs[0]?.id ?? '');
+  // Every session belongs to a playthrough: the chosen one, else the last in
+  // progress, else the latest.
+  const playthroughs = userGame.playthroughs;
+  const defaultTarget =
+    playthroughId ??
+    [...playthroughs].reverse().find((p) => p.status === 'IN_PROGRESS')?.id ??
+    playthroughs[playthroughs.length - 1]?.id ??
+    '';
+  const [targetId, setTargetId] = useState(defaultTarget);
   const [playedAt, setPlayedAt] = useState(
     toDateTimeLocalInput(session ? new Date(session.playedAt) : new Date()),
   );
@@ -96,7 +102,7 @@ export function SessionDialog({
           onChange={(e) => setTargetId(e.target.value)}
           slotProps={{ select: { native: true } }}
         >
-          {sessionPlaythroughs.map((p) => (
+          {playthroughs.map((p) => (
             <option key={p.id} value={p.id}>
               {t.ofPlaythrough(p.number)}
               {p.name ? ` — ${p.name}` : ''}

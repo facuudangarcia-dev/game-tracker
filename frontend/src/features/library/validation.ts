@@ -51,7 +51,7 @@ export interface PlaythroughFormErrors {
   completionDate?: string;
 }
 
-/** Same rules as the backend: COMPLETED needs a completion date, not future, >= start. */
+/** Same rules as the backend: the (optional) completion date is not future and >= start. */
 export function validatePlaythroughDates(
   status: PlayStatus,
   startDate: string,
@@ -60,11 +60,9 @@ export function validatePlaythroughDates(
 ): PlaythroughFormErrors {
   const errors: PlaythroughFormErrors = {};
   if (status === 'COMPLETED') {
-    if (!completionDate) {
-      errors.completionDate = v.completionRequired;
-    } else if (completionDate > today) {
+    if (completionDate > today) {
       errors.completionDate = v.dateInFuture;
-    } else if (startDate && completionDate < startDate) {
+    } else if (startDate && completionDate && completionDate < startDate) {
       errors.completionDate = v.completionBeforeStart;
     }
   }

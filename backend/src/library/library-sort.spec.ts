@@ -13,7 +13,11 @@ function item(id: string, name: string, overrides: Partial<UserGameListItemDto> 
     totalMinutes: 0,
     rating: null,
     platinumAchieved: false,
+    favorite: false,
     createdAt: '2026-01-01T00:00:00.000Z',
+    difficulty: null,
+    steam: false,
+    achievements: null,
     ...overrides,
   } satisfies UserGameListItemDto;
 }

@@ -9,11 +9,16 @@ interface PlayerAvatarProps {
   avatar: Avatar;
   username: string;
   size: number;
+  /** Inside a labelled control or next to the username: hidden from assistive tech. */
+  decorative?: boolean;
 }
 
 /** Circular avatar: uploaded image, built-in illustration or the username's initial. */
-export function PlayerAvatar({ avatar, username, size }: PlayerAvatarProps) {
+export function PlayerAvatar({ avatar, username, size, decorative = false }: PlayerAvatarProps) {
   const label = messages.profile.avatarAlt(username);
+  const a11y = decorative
+    ? ({ 'aria-hidden': true } as const)
+    : ({ role: 'img', 'aria-label': label } as const);
   return (
     <Box
       sx={{
@@ -30,17 +35,16 @@ export function PlayerAvatar({ avatar, username, size }: PlayerAvatarProps) {
         <Box
           component="img"
           src={avatar.url}
-          alt={label}
+          alt={decorative ? '' : label}
           sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       ) : avatar?.kind === 'preset' && isAvatarPreset(avatar.preset) ? (
-        <Box role="img" aria-label={label} sx={{ width: '100%', height: '100%' }}>
+        <Box {...a11y} sx={{ width: '100%', height: '100%' }}>
           <AvatarIllustration preset={avatar.preset} />
         </Box>
       ) : (
         <Box
-          role="img"
-          aria-label={label}
+          {...a11y}
           sx={(theme) => ({
             width: '100%',
             height: '100%',

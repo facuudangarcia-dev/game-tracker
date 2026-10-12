@@ -21,7 +21,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { type FormEvent, useState } from 'react';
 import { DialogFooter, DialogHeader } from '../../components/DialogChrome';
 import { messages } from '../../i18n/messages';
-import { brandGradient, dialogPaperSx, primaryActionSx } from '../../theme/brand';
+import { brandGradient, dialogPaperSx, ink, primaryActionSx } from '../../theme/brand';
 import { formatYear } from '../../lib/format';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
 import { GameCover } from './GameCover';
@@ -146,8 +146,8 @@ export function AddGameDialog({
               p: 0.5,
               gap: 0.5,
               borderRadius: 99,
-              bgcolor: alpha(theme.palette.common.white, 0.04),
-              border: `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
+              bgcolor: alpha(ink(theme), 0.04),
+              border: `1px solid ${alpha(ink(theme), 0.1)}`,
               '& .MuiToggleButton-root': {
                 border: 'none',
                 borderRadius: '99px !important',
@@ -298,8 +298,8 @@ function SearchResults({ enabled, isFetching, isError, data, onSelect }: SearchR
             overflowY: 'auto',
             p: 0.75,
             borderRadius: 2.5,
-            bgcolor: alpha(theme.palette.common.white, 0.02),
-            border: `1px solid ${alpha(theme.palette.common.white, 0.07)}`,
+            bgcolor: alpha(ink(theme), 0.02),
+            border: `1px solid ${alpha(ink(theme), 0.07)}`,
           })}
         >
           {data.results.map((result) => {

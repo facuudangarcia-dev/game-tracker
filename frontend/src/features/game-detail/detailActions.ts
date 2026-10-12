@@ -7,8 +7,6 @@ export type DetailAction =
   | { type: 'newPlaythrough' }
   | { type: 'editPlaythrough'; playthrough: Playthrough }
   | { type: 'deletePlaythrough'; playthrough: Playthrough }
-  | { type: 'manualTime'; playthrough: Playthrough }
-  | { type: 'timeMode'; playthrough: Playthrough }
   | { type: 'newSession'; playthroughId?: string }
   | { type: 'editSession'; session: GamingSession }
   | { type: 'deleteSession'; session: GamingSession }

@@ -11,7 +11,7 @@ export interface PlaythroughDates {
 
 /**
  * Validates the final state of a playthrough (after applying a change):
- * - COMPLETED requires a completion date; PENDING / IN_PROGRESS have none;
+ * - only COMPLETED may have a completion date, and it's optional (decision #70);
  * - completion >= start when both exist;
  * - completion can't be in the future (a future start date is allowed).
  * @throws HttpException with a LibraryErrorCode
@@ -21,13 +21,6 @@ export function assertValidPlaythroughDates({
   startDate,
   completionDate,
 }: PlaythroughDates) {
-  if (status === PlayStatus.Completed && !completionDate) {
-    throw apiError(
-      HttpStatus.BAD_REQUEST,
-      LibraryErrorCode.CompletionDateRequired,
-      'A completed playthrough requires a completion date',
-    );
-  }
   if (status !== PlayStatus.Completed && completionDate) {
     throw apiError(
       HttpStatus.BAD_REQUEST,

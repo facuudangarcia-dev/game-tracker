@@ -1,12 +1,15 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
 import { CatalogGameNotFoundError, CatalogImportService } from '../catalog/catalog-import.service';
 import { CatalogUnavailableError } from '../catalog/game-catalog-provider';
 import { apiError } from '../common/api-error';
 import { escapeLikePattern, isUniqueViolation } from '../database/postgres-errors';
 import { isPlatformAllowedForGame } from '../games/game-rules';
 import { Game } from '../games/game.entity';
+import { SteamExcludedApp } from '../steam/steam-excluded-app.entity';
+import { AchievementsService } from './achievements.service';
+import { PlaythroughTimeAdjustment } from './playthrough-time-adjustment.entity';
 import { GamesService } from '../games/games.service';
 import { Platform } from '../platforms/platform.entity';
 import type { CreateUserGameDto } from './dto/create-user-game.dto';
@@ -15,12 +18,13 @@ import { sortLibrary } from './library-sort';
 import type { UpdateUserGameDto } from './dto/update-user-game.dto';
 import {
   toGameDetails,
+  type PlayedDifficultyDto,
   toListItem,
   toPlaythroughDto,
   type UserGameDetailsDto,
   type UserGameListItemDto,
 } from './dto/user-game-response.dto';
-import { LibraryErrorCode, PlayStatus, TimeMode } from './library.constants';
+import { FAVORITES_MAX, LibraryErrorCode, PlayStatus } from './library.constants';
 import { PlaythroughTime, UserGameSummary } from './library-views.entity';
 import { Playthrough } from './playthrough.entity';
 import { DifficultiesService } from './difficulties.service';
@@ -30,6 +34,8 @@ import { Difficulty, DifficultyKind } from './difficulty.entity';
 import { assertValidPlaythroughDates } from './playthrough-rules';
 import { UserGameAccess, userGameNotFound } from './user-game-access.service';
 import { UserGame } from './user-game.entity';
+import { ActivityType } from '../activity/activity.entity';
+import { ActivityService } from '../activity/activity.service';
 
 @Injectable()
 export class LibraryService {
@@ -45,6 +51,10 @@ export class LibraryService {
     private readonly access: UserGameAccess,
     private readonly difficulties: DifficultiesService,
     private readonly playtime: PlaytimeService,
+    private readonly achievementsService: AchievementsService,
+    @InjectRepository(SteamExcludedApp)
+    private readonly steamExcluded: Repository<SteamExcludedApp>,
+    private readonly activity: ActivityService,
   ) {}
 
   /**
@@ -118,16 +128,22 @@ export class LibraryService {
               name: difficultyName,
             })
           : null;
-        // Every UserGame starts with playthrough #1 (manual time), with the
+        // Every UserGame starts with playthrough #1 (no time yet), with the
         // settings chosen when adding the game (pending by default).
-        await manager.getRepository(Playthrough).insert({
+        const previousTimeMinutes = dto.initialPlaythrough?.previousMinutes ?? 0;
+        const { identifiers } = await manager.getRepository(Playthrough).insert({
           userGameId: userGame.id,
           number: 1,
           ...initial,
           difficultyId: difficulty?.id ?? null,
-          timeMode: TimeMode.Manual,
-          manualTimeMinutes: 0,
+          previousTimeMinutes,
         });
+        if (previousTimeMinutes !== 0) {
+          await manager.getRepository(PlaythroughTimeAdjustment).insert({
+            playthroughId: (identifiers[0] as { id: string }).id,
+            deltaMinutes: previousTimeMinutes,
+          });
+        }
         return userGame.id;
       });
     } catch (error) {
@@ -141,6 +157,10 @@ export class LibraryService {
       throw error;
     }
 
+    await this.activity.record(userId, ActivityType.GameAdded, {
+      userGameId,
+      data: { status: initial.status },
+    });
     return this.get(userId, userGameId);
   }
 
@@ -176,8 +196,18 @@ export class LibraryService {
     }
 
     const userGames = await qb.getMany();
-    const summaries = await this.summariesFor(userGames.map((ug) => ug.id));
-    const items = userGames.map((userGame) => toListItem(userGame, summaries.get(userGame.id)!));
+    const ids = userGames.map((ug) => ug.id);
+    const [summaries, difficulties, achievements] = await Promise.all([
+      this.summariesFor(ids),
+      this.playedDifficultiesFor(ids),
+      this.achievementCountsFor(ids),
+    ]);
+    const items = userGames.map((userGame) =>
+      toListItem(userGame, summaries.get(userGame.id)!, {
+        difficulty: difficulties.get(userGame.id) ?? null,
+        achievements: achievements.get(userGame.id) ?? null,
+      }),
+    );
     return sortLibrary(items, query.sort, query.order);
   }
 
@@ -196,16 +226,22 @@ export class LibraryService {
       throw userGameNotFound();
     }
 
-    const [summaries, times, difficulties, sessions] = await Promise.all([
+    const [summaries, played, times, difficulties, sessions, achievementList] = await Promise.all([
       this.summariesFor([userGame.id]),
+      this.playedDifficultiesFor([userGame.id]),
       this.playthroughTimes.findBy({ userGameId: userGame.id }),
       this.difficulties.listFor(userGame.id),
       this.playtime.listFor(userGame.id),
+      this.achievementsService.listFor(userGame.id),
     ]);
+    const achieved = achievementList.filter((a) => a.achieved).length;
     const minutesById = new Map(times.map((t) => [t.playthroughId, t.minutes]));
 
     return {
-      ...toListItem(userGame, summaries.get(userGame.id)!),
+      ...toListItem(userGame, summaries.get(userGame.id)!, {
+        difficulty: played.get(userGame.id) ?? null,
+        achievements: achievementList.length ? { achieved, total: achievementList.length } : null,
+      }),
       game: toGameDetails(userGame.game),
       notes: userGame.notes,
       platinum: toPlatinumDto(userGame),
@@ -214,10 +250,11 @@ export class LibraryService {
       ),
       sessions,
       difficulties,
+      achievementList,
     };
   }
 
-  /** Updates personal data (rating, notes). Omitted fields stay unchanged. */
+  /** Updates personal data (rating, notes, favorite). Omitted fields stay unchanged. */
   async update(
     userId: string,
     userGameId: string,
@@ -227,18 +264,66 @@ export class LibraryService {
     const changes: Partial<UserGame> = {};
     if (dto.rating !== undefined) changes.rating = dto.rating;
     if (dto.notes !== undefined) changes.notes = dto.notes;
-    if (Object.keys(changes).length > 0) {
-      await this.userGames.update({ id: userGame.id }, changes);
+    // Unmarking always works; marking keeps the date it was first marked.
+    if (dto.favorite === false) changes.favoriteAt = null;
+    const marking = dto.favorite === true && userGame.favoriteAt === null;
+
+    await this.dataSource.transaction(async (manager) => {
+      if (marking) {
+        // Serializes concurrent "mark" requests of the same user before counting.
+        await manager.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+        const favorites = await manager.count(UserGame, {
+          where: { userId, favoriteAt: Not(IsNull()) },
+        });
+        if (favorites >= FAVORITES_MAX) {
+          throw apiError(
+            HttpStatus.CONFLICT,
+            LibraryErrorCode.FavoritesLimitReached,
+            `At most ${FAVORITES_MAX} favorite games`,
+          );
+        }
+        changes.favoriteAt = new Date();
+      }
+      if (Object.keys(changes).length > 0) {
+        await manager.update(UserGame, { id: userGame.id }, changes);
+      }
+    });
+    if (dto.rating !== undefined && dto.rating !== null && dto.rating !== userGame.rating) {
+      await this.activity.record(userId, ActivityType.Rated, {
+        userGameId: userGame.id,
+        data: { rating: dto.rating },
+      });
+    }
+    if (marking) {
+      await this.activity.record(userId, ActivityType.Favorited, { userGameId: userGame.id });
     }
     return this.get(userId, userGame.id);
   }
 
   /** Deletes the user's record and all its personal data; never the Game or Platform. */
+  /**
+   * Deletes the game from the library. A Steam game is also excluded from
+   * future syncs, so it doesn't come back (decision #78).
+   */
   async remove(userId: string, userGameId: string): Promise<void> {
-    const result = await this.userGames.delete({ id: userGameId, userId });
-    if (!result.affected) {
+    const userGame = await this.userGames.findOne({
+      where: { id: userGameId, userId },
+      relations: { game: true },
+    });
+    if (!userGame) {
       throw userGameNotFound();
     }
+    await this.dataSource.transaction(async (manager) => {
+      if (userGame.steamAppId !== null) {
+        await manager
+          .getRepository(SteamExcludedApp)
+          .upsert({ userId, appId: userGame.steamAppId, name: userGame.game.name.slice(0, 200) }, [
+            'userId',
+            'appId',
+          ]);
+      }
+      await manager.getRepository(UserGame).delete({ id: userGameId, userId });
+    });
   }
 
   private async resolveGame(userId: string, dto: CreateUserGameDto): Promise<Game> {
@@ -266,6 +351,60 @@ export class LibraryService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Hardest difficulty among the in-progress, completed or played playthroughs of each
+   * game (decision #72), with its place in the game's playthrough list.
+   */
+  private async playedDifficultiesFor(
+    userGameIds: string[],
+  ): Promise<Map<string, PlayedDifficultyDto>> {
+    if (userGameIds.length === 0) {
+      return new Map();
+    }
+    const rows: { user_game_id: string; name: string; level: number; levels: number }[] =
+      await this.dataSource.query(
+        `SELECT DISTINCT ON (p.user_game_id) p.user_game_id, d.name, d.level, d.levels
+           FROM playthroughs p
+           JOIN (SELECT id, name,
+                        (row_number() OVER w - 1)::int AS level,
+                        (count(*) OVER (PARTITION BY user_game_id))::int AS levels
+                   FROM difficulties
+                  WHERE kind = 'PLAYTHROUGH' AND user_game_id = ANY($1::uuid[])
+                 WINDOW w AS (PARTITION BY user_game_id ORDER BY position, created_at)) d
+             ON d.id = p.difficulty_id
+          WHERE p.user_game_id = ANY($1::uuid[]) AND p.status IN ('IN_PROGRESS', 'COMPLETED', 'PLAYED')
+          ORDER BY p.user_game_id, d.level DESC`,
+        [userGameIds],
+      );
+    return new Map(
+      rows.map((row) => [
+        row.user_game_id,
+        { name: row.name, level: row.level, levels: row.levels },
+      ]),
+    );
+  }
+
+  private async achievementCountsFor(
+    userGameIds: string[],
+  ): Promise<Map<string, { achieved: number; total: number }>> {
+    if (userGameIds.length === 0) {
+      return new Map();
+    }
+    const rows: { user_game_id: string; achieved: number; total: number }[] =
+      await this.dataSource.query(
+        `SELECT user_game_id,
+                count(*) FILTER (WHERE achieved)::int AS achieved,
+                count(*)::int AS total
+           FROM achievements
+          WHERE user_game_id = ANY($1::uuid[])
+          GROUP BY user_game_id`,
+        [userGameIds],
+      );
+    return new Map(
+      rows.map((row) => [row.user_game_id, { achieved: row.achieved, total: row.total }]),
+    );
   }
 
   private async summariesFor(userGameIds: string[]): Promise<Map<string, UserGameSummary>> {

@@ -16,7 +16,13 @@ import {
 } from 'class-validator';
 import { CatalogProvider, EXTERNAL_ID_MAX_LENGTH } from '../../catalog/catalog-provider';
 import { GAME_NAME_MAX_LENGTH } from '../../games/game.entity';
-import { DEFAULT_DIFFICULTY_NAMES, PlayStatus, RATING_MAX, RATING_MIN } from '../library.constants';
+import {
+  DEFAULT_DIFFICULTY_NAMES,
+  MAX_MINUTES,
+  PlayStatus,
+  RATING_MAX,
+  RATING_MIN,
+} from '../library.constants';
 import { IsCalendarDate } from './validation';
 
 const trim = ({ value }: { value: unknown }): unknown =>
@@ -57,6 +63,13 @@ export class InitialPlaythroughDto {
   @IsOptional()
   @IsIn(DEFAULT_DIFFICULTY_NAMES)
   difficulty?: string | null;
+
+  /** Time already played (whole minutes), stored as the playthrough's previous time. */
+  @ValidateIf((dto: InitialPlaythroughDto) => dto.previousMinutes !== undefined)
+  @IsInt()
+  @Min(0)
+  @Max(MAX_MINUTES)
+  previousMinutes?: number;
 }
 
 /**

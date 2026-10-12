@@ -8,7 +8,7 @@ export const SORT_FIELDS: LibrarySortField[] = [
   'startDate',
   'completionDate',
 ];
-export const STATUSES: PlayStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED'];
+export const STATUSES: PlayStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'PLAYED'];
 export const DEFAULT_SORT: LibrarySortField = 'createdAt';
 
 /** Natural default direction per field (newest / most / best first, names A-Z). */

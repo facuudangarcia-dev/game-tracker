@@ -9,18 +9,30 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsIn, ValidateIf } from 'class-validator';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../auth/decorators';
 import { apiError } from '../common/api-error';
+import { COUNTRY_CODES } from '../common/countries';
 import { toUserResponse, type UserResponseDto } from '../users/user-response.dto';
 import type { User } from '../users/user.entity';
 import { AVATAR_MAX_BYTES, AVATAR_PRESETS, type AvatarPreset } from './avatar-presets';
-import { type PlayerStatsDto, ProfileService } from './profile.service';
+import { type PlayerHighlightsDto, PlayerStatsDto, ProfileService } from './profile.service';
 
 export class AvatarPresetDto {
   @IsIn(AVATAR_PRESETS)
   preset: AvatarPreset;
+}
+
+/** PUT /api/profile/country: an ISO 3166-1 alpha-2 code, or null to clear it. */
+export class CountryDto {
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @ValidateIf((_, value) => value !== null)
+  @IsIn(COUNTRY_CODES)
+  country: string | null;
 }
 
 function tooLarge() {
@@ -67,6 +79,18 @@ export class ProfileController {
   @Get('stats')
   stats(@CurrentUser() user: User): Promise<PlayerStatsDto> {
     return this.profile.stats(user.id);
+  }
+
+  /** Most played, fastest completion, best/worst rated and favorite games. */
+  @Get('highlights')
+  highlights(@CurrentUser() user: User): Promise<PlayerHighlightsDto> {
+    return this.profile.highlights(user.id);
+  }
+
+  /** Country whose prices the user sees in Deals, the wishlist and the Home (decision #68). */
+  @Put('country')
+  async setCountry(@CurrentUser() user: User, @Body() dto: CountryDto): Promise<UserResponseDto> {
+    return toUserResponse(await this.profile.setCountry(user, dto.country));
   }
 
   /** Chooses a built-in avatar (replaces an uploaded image). */

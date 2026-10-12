@@ -13,14 +13,23 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { type FormEvent, useState } from 'react';
 import { type Choice, ChoiceChips } from '../../components/ChoiceChips';
+import { durationFromMinutes } from '../../components/duration';
+import { DurationFields } from '../../components/DurationFields';
 import { messages } from '../../i18n/messages';
 import { getApiErrorMessage } from '../../lib/api/errors';
 import { todayLocal } from '../../lib/dates';
-import { ambientBackground, dialogPaperSx, primaryActionSx, statusColor } from '../../theme/brand';
+import {
+  ambientBackground,
+  dialogPaperSx,
+  ink,
+  primaryActionSx,
+  statusColor,
+} from '../../theme/brand';
 import { useAddUserGame } from './queries';
 import type { GameSource, Platform, PlayStatus, UserGameDetails } from './types';
 import {
   DEFAULT_DIFFICULTY_NAMES,
+  parseDuration,
   parseRating,
   RATING_MAX,
   RATING_MIN,
@@ -28,7 +37,7 @@ import {
 } from './validation';
 
 const t = messages.addToLibrary;
-const STATUSES: PlayStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED'];
+const STATUSES: PlayStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'PLAYED'];
 const DEFAULT_DIFFICULTY = 'Normal';
 const NO_DIFFICULTY = '';
 
@@ -56,7 +65,7 @@ function RatingRing({ rating }: { rating: number | null }) {
         value={100}
         size={56}
         thickness={4}
-        sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.08), position: 'absolute' })}
+        sx={(theme) => ({ color: alpha(ink(theme), 0.08), position: 'absolute' })}
       />
       <CircularProgress variant="determinate" value={rating ?? 0} size={56} thickness={4} />
       <Typography
@@ -77,7 +86,7 @@ function RatingRing({ rating }: { rating: number | null }) {
 
 /**
  * "How do I want to register this game?": platform, initial status, dates,
- * difficulty and optional rating. Creates the UserGame and its playthrough #1
+ * time already played, difficulty and optional rating. Creates the UserGame and its playthrough #1
  * in a single request.
  */
 export function AddToLibraryDialog({
@@ -97,16 +106,21 @@ export function AddToLibraryDialog({
   const [status, setStatus] = useState<PlayStatus>('PENDING');
   const [startDate, setStartDate] = useState('');
   const [completionDate, setCompletionDate] = useState('');
+  const [played, setPlayed] = useState(durationFromMinutes(null));
   const [difficulty, setDifficulty] = useState(DEFAULT_DIFFICULTY);
   const [rating, setRating] = useState('');
   const [errors, setErrors] = useState<{
     platform?: string;
     rating?: string;
     completionDate?: string;
+    played?: string;
   }>({});
   const mutation = useAddUserGame();
   const completed = status === 'COMPLETED';
+  // Dates and time played only apply once the game was started (decision #70).
+  const started = status !== 'PENDING';
   const parsedRating = parseRating(rating);
+  const playedMinutes = parseDuration(played.hours, played.minutes);
   const ratingPreview = 'error' in parsedRating ? null : parsedRating.value;
 
   const statusChoices: Choice<PlayStatus>[] = STATUSES.map((value) => ({
@@ -137,9 +151,14 @@ export function AddToLibraryDialog({
       platform: platformId ? undefined : messages.validation.required,
       rating: 'error' in parsedRating ? parsedRating.error : undefined,
       completionDate: dateErrors.completionDate,
+      played: started && playedMinutes === null ? messages.validation.minutesInvalid : undefined,
     };
     setErrors(nextErrors);
-    if (Object.values(nextErrors).some(Boolean) || 'error' in parsedRating) {
+    if (
+      Object.values(nextErrors).some(Boolean) ||
+      'error' in parsedRating ||
+      (started && playedMinutes === null)
+    ) {
       return;
     }
     mutation.mutate(
@@ -149,8 +168,9 @@ export function AddToLibraryDialog({
         initialPlaythrough: {
           status,
           startDate: startDate || null,
-          completionDate: completed ? completionDate : null,
+          completionDate: completed && completionDate ? completionDate : null,
           difficulty: difficulty || null,
+          ...(started && playedMinutes ? { previousMinutes: playedMinutes } : {}),
         },
         rating: parsedRating.value,
       },
@@ -310,7 +330,7 @@ export function AddToLibraryDialog({
             fill
           />
 
-          {status !== 'PENDING' ? (
+          {started ? (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
                 fullWidth
@@ -325,7 +345,6 @@ export function AddToLibraryDialog({
                   fullWidth
                   label={t.completionDate}
                   type="date"
-                  required
                   value={completionDate}
                   onChange={(e) => setCompletionDate(e.target.value)}
                   error={Boolean(errors.completionDate)}
@@ -334,6 +353,15 @@ export function AddToLibraryDialog({
                 />
               ) : null}
             </Stack>
+          ) : null}
+
+          {started ? (
+            <DurationFields
+              label={t.playedTime}
+              value={played}
+              onChange={setPlayed}
+              error={errors.played}
+            />
           ) : null}
 
           <Box>

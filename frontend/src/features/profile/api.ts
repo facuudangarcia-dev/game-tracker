@@ -8,6 +8,7 @@ export interface PlayerStats {
   totalGames: number;
   completed: number;
   inProgress: number;
+  played: number;
   pending: number;
   platinums: number;
   totalMinutes: number;
@@ -17,12 +18,46 @@ export interface PlayerStats {
   topPlatform: { name: string; shortName: string; games: number } | null;
 }
 
-export const profileKeys = { stats: ['profile', 'stats'] as const };
+/** A library game as shown in the profile highlights. */
+export interface ProfileGame {
+  userGameId: string;
+  name: string;
+  coverUrl: string | null;
+  platform: { shortName: string };
+}
 
-export function usePlayerStats() {
+export interface PlayerHighlights {
+  mostPlayed: (ProfileGame & { minutes: number }) | null;
+  fastest:
+    | (ProfileGame & { minutes: number; playthroughNumber: number; playthroughName: string | null })
+    | null;
+  highestRated: (ProfileGame & { rating: number }) | null;
+  lowestRated: (ProfileGame & { rating: number }) | null;
+  favorites: ProfileGame[];
+}
+
+/** Most favorite games a player can mark. */
+export const FAVORITES_MAX = 5;
+
+export const profileKeys = {
+  stats: ['profile', 'stats'] as const,
+  highlights: ['profile', 'highlights'] as const,
+};
+
+export function usePlayerHighlights(enabled = true) {
+  return useQuery({
+    queryKey: profileKeys.highlights,
+    queryFn: () => apiFetch<PlayerHighlights>('/profile/highlights'),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+export function usePlayerStats(enabled = true) {
   return useQuery({
     queryKey: profileKeys.stats,
     queryFn: () => apiFetch<PlayerStats>('/profile/stats'),
+    enabled,
     // The library changes elsewhere: refetch whenever the profile opens.
     staleTime: 0,
   });

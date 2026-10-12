@@ -1,8 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { apiError } from '../common/api-error';
 import { isFutureDate } from '../common/dates';
+import { Achievement } from './achievement.entity';
 import { DifficultiesService } from './difficulties.service';
 import { DifficultyKind } from './difficulty.entity';
 import type { PlatinumResponseDto, UpdatePlatinumDto } from './dto/platinum.dto';
@@ -10,6 +11,8 @@ import { LibraryErrorCode } from './library.constants';
 import { Playthrough } from './playthrough.entity';
 import { UserGameAccess } from './user-game-access.service';
 import { UserGame } from './user-game.entity';
+import { ActivityType } from '../activity/activity.entity';
+import { ActivityService } from '../activity/activity.service';
 
 export function toPlatinumDto(userGame: UserGame): PlatinumResponseDto {
   return {
@@ -25,7 +28,8 @@ export function toPlatinumDto(userGame: UserGame): PlatinumResponseDto {
 /**
  * Platinum of a UserGame: independent of its status, of the playthrough time
  * and of the playthrough difficulties. Its date can't be in the future nor
- * before the game's start date (earliest playthrough start).
+ * before the game's start date (earliest playthrough start). Achieving it
+ * checks every achievement; removing it leaves them as they are.
  */
 @Injectable()
 export class PlatinumService {
@@ -34,6 +38,8 @@ export class PlatinumService {
     @InjectRepository(Playthrough) private readonly playthroughs: Repository<Playthrough>,
     private readonly access: UserGameAccess,
     private readonly difficulties: DifficultiesService,
+    private readonly dataSource: DataSource,
+    private readonly activity: ActivityService,
   ) {}
 
   async get(userId: string, userGameId: string): Promise<PlatinumResponseDto> {
@@ -85,15 +91,42 @@ export class PlatinumService {
       );
     }
 
-    await this.userGames.update(
-      { id: userGameId },
-      {
-        platinumAchieved: true,
-        platinumDate: dto.date,
-        platinumTimeMinutes: dto.timeMinutes,
-        platinumDifficultyId: dto.difficultyId ?? null,
-      },
-    );
+    await this.achieve(userGameId, dto.date, dto.timeMinutes, dto.difficultyId ?? null);
+  }
+
+  /**
+   * Records an achieved platinum (already validated) and checks every pending
+   * achievement on its date. Also used by Steam's automatic platinum (#81).
+   */
+  async achieve(
+    userGameId: string,
+    date: string,
+    timeMinutes: number,
+    difficultyId: string | null,
+  ): Promise<void> {
+    const before = await this.userGames.findOneByOrFail({ id: userGameId });
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(UserGame).update(
+        { id: userGameId },
+        {
+          platinumAchieved: true,
+          platinumDate: date,
+          platinumTimeMinutes: timeMinutes,
+          platinumDifficultyId: difficultyId,
+        },
+      );
+      // A platinum means every achievement: the pending ones are checked on the
+      // platinum's date (the ones already checked keep theirs).
+      await manager
+        .getRepository(Achievement)
+        .update(
+          { userGameId, achieved: false },
+          { achieved: true, achievedAt: new Date(`${date}T00:00:00.000Z`) },
+        );
+    });
+    if (!before.platinumAchieved) {
+      await this.activity.record(before.userId, ActivityType.Platinum, { userGameId });
+    }
   }
 
   /**

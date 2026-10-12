@@ -17,12 +17,18 @@ import { alpha, type Theme } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { type ReactNode, useState } from 'react';
+import { Link as RouterLink } from 'react-router';
 import { useLogout } from '../features/auth/useAuthMutations';
 import { useCurrentUser } from '../features/auth/useCurrentUser';
 import { SectionHeading } from '../features/home/SectionHeading';
 import { type PlayerStats, usePlayerStats } from '../features/profile/api';
+import { PriceCountrySelect } from '../features/explore/PriceCountrySelect';
 import { AvatarDialog } from '../features/profile/AvatarDialog';
+import { DeleteAccountDialog } from '../features/profile/DeleteAccountDialog';
+import { playerPath } from '../features/social/paths';
+import { VisibilitySetting } from '../features/social/VisibilitySetting';
 import { PlayerAvatar } from '../features/profile/PlayerAvatar';
+import { ProfileHighlights } from '../features/profile/ProfileHighlights';
 import { intlLocale } from '../i18n/locale';
 import { messages } from '../i18n/messages';
 import { formatDate } from '../lib/format';
@@ -30,6 +36,7 @@ import {
   ambientBackground,
   brandGradient,
   gradientTextSx,
+  ink,
   panelSx,
   statusColor,
   VIOLET,
@@ -105,11 +112,18 @@ function StatTile({ label, value, icon, accent, footer, sx }: StatTileProps) {
   );
 }
 
-/** Completed / in progress / pending as one segmented bar with its legend. */
-function LibraryBreakdown({ stats }: { stats: PlayerStats }) {
+/** Completed / in progress / played / pending as one segmented bar with its legend. */
+function LibraryBreakdown({
+  stats,
+  progressTitle = s.progressTitle,
+}: {
+  stats: PlayerStats;
+  progressTitle?: string;
+}) {
   const segments = [
     { key: 'COMPLETED' as const, label: s.completed, value: stats.completed },
     { key: 'IN_PROGRESS' as const, label: s.inProgress, value: stats.inProgress },
+    { key: 'PLAYED' as const, label: s.played, value: stats.played },
     { key: 'PENDING' as const, label: s.pending, value: stats.pending },
   ];
   const total = stats.totalGames;
@@ -129,7 +143,7 @@ function LibraryBreakdown({ stats }: { stats: PlayerStats }) {
         sx={{ justifyContent: 'space-between', alignItems: { sm: 'baseline' }, gap: 0.5, mb: 2 }}
       >
         <Typography variant="h6" component="h3" sx={{ fontWeight: 800 }}>
-          {s.progressTitle}
+          {progressTitle}
         </Typography>
         <Typography sx={(theme) => ({ fontWeight: 800, ...gradientTextSx(theme) })}>
           {s.completionRate(completionRate)}
@@ -142,7 +156,7 @@ function LibraryBreakdown({ stats }: { stats: PlayerStats }) {
           height: 14,
           borderRadius: 99,
           overflow: 'hidden',
-          bgcolor: alpha(theme.palette.common.white, 0.06),
+          bgcolor: alpha(ink(theme), 0.06),
           gap: '3px',
         })}
       >
@@ -167,7 +181,7 @@ function LibraryBreakdown({ stats }: { stats: PlayerStats }) {
           m: 0,
           mt: 2,
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))' },
           gap: 2,
         }}
       >
@@ -205,7 +219,7 @@ function RatingRing({ value }: { value: number | null }) {
         value={100}
         size={74}
         thickness={4}
-        sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.08), position: 'absolute' })}
+        sx={(theme) => ({ color: alpha(ink(theme), 0.08), position: 'absolute' })}
       />
       <CircularProgress
         variant="determinate"
@@ -231,11 +245,24 @@ function RatingRing({ value }: { value: number | null }) {
   );
 }
 
-function StatsSection() {
-  const stats = usePlayerStats();
+/**
+ * The player's statistics: the current user's, or another player's already
+ * loaded `stats` (a friend's profile, decision #85).
+ */
+export function StatsSection({
+  stats: given,
+  emptyText = s.empty,
+  other = false,
+}: {
+  stats?: PlayerStats;
+  emptyText?: string;
+  /** Another player's stats: "su" instead of "tu". */
+  other?: boolean;
+}) {
+  const stats = usePlayerStats(given === undefined);
 
   let content: ReactNode;
-  if (stats.isPending) {
+  if (!given && stats.isPending) {
     content = (
       <Box
         sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' } }}
@@ -245,7 +272,7 @@ function StatsSection() {
         ))}
       </Box>
     );
-  } else if (stats.isError) {
+  } else if (!given && stats.isError) {
     content = (
       <Alert
         severity="error"
@@ -260,13 +287,13 @@ function StatsSection() {
       </Alert>
     );
   } else {
-    const data = stats.data;
+    const data = given ?? stats.data!;
     const hours = Math.floor(data.totalMinutes / 60);
     content = (
       <Stack spacing={2}>
         {data.totalGames === 0 ? (
           <Alert severity="info" variant="outlined">
-            {s.empty}
+            {emptyText}
           </Alert>
         ) : null}
         <Box
@@ -394,7 +421,10 @@ function StatsSection() {
             sx={{ gridColumn: { xs: 'span 2', md: 'span 4' } }}
           />
 
-          <LibraryBreakdown stats={data} />
+          <LibraryBreakdown
+            stats={data}
+            progressTitle={other ? s.progressTitleOther : s.progressTitle}
+          />
         </Box>
       </Stack>
     );
@@ -402,7 +432,11 @@ function StatsSection() {
 
   return (
     <Box component="section" aria-labelledby="profile-stats">
-      <SectionHeading id="profile-stats" eyebrow={s.eyebrow} title={s.title} />
+      <SectionHeading
+        id="profile-stats"
+        eyebrow={other ? s.eyebrowOther : s.eyebrow}
+        title={s.title}
+      />
       <Box sx={{ mt: 2.5 }}>{content}</Box>
     </Box>
   );
@@ -413,137 +447,181 @@ export function ProfilePage() {
   const { data: user } = useCurrentUser();
   const logout = useLogout();
   const [editingAvatar, setEditingAvatar] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   if (!user) {
     return null;
   }
 
   return (
-    <Stack spacing={{ xs: 4, md: 5 }}>
-      <Box
-        component="section"
-        aria-labelledby="profile-username"
-        sx={(theme) => ({
-          position: 'relative',
-          overflow: 'hidden',
-          borderRadius: { xs: 3, md: 4 },
-          border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
-          background: ambientBackground(theme),
-          px: 3,
-          pt: { xs: 4, md: 5 },
-          pb: { xs: 3.5, md: 4.5 },
-          textAlign: 'center',
-        })}
-      >
-        <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
-          <Box sx={{ position: 'relative' }}>
-            {/* Gradient ring with a soft glow around the picture. */}
-            <Box
-              sx={(theme) => ({
-                p: '5px',
-                borderRadius: '50%',
-                background: `conic-gradient(from 210deg, ${theme.palette.primary.main}, ${VIOLET}, ${theme.palette.secondary.main}, ${theme.palette.primary.main})`,
-                boxShadow: `0 0 50px -6px ${alpha(theme.palette.primary.main, 0.7)}`,
-              })}
-            >
-              <Box sx={{ p: '4px', borderRadius: '50%', bgcolor: 'background.default' }}>
-                <PlayerAvatar avatar={user.avatar} username={user.username} size={148} />
-              </Box>
-            </Box>
-            <Tooltip title={t.editAvatar}>
-              <IconButton
-                aria-label={t.editAvatar}
-                onClick={() => setEditingAvatar(true)}
+    // Player card on the left; favorites and standout games in a column on the right.
+    <Box
+      sx={{
+        display: 'grid',
+        gap: { xs: 4, md: 3 },
+        alignItems: 'start',
+        gridTemplateColumns: {
+          xs: 'minmax(0, 1fr)',
+          lg: 'minmax(0, 1fr) 340px',
+        },
+      }}
+    >
+      <Stack spacing={{ xs: 4, md: 5 }} sx={{ minWidth: 0 }}>
+        <Box
+          component="section"
+          aria-labelledby="profile-username"
+          sx={(theme) => ({
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: { xs: 3, md: 4 },
+            border: `1px solid ${alpha(ink(theme), 0.08)}`,
+            background: ambientBackground(theme),
+            px: 3,
+            pt: { xs: 4, md: 5 },
+            pb: { xs: 3.5, md: 4.5 },
+            textAlign: 'center',
+          })}
+        >
+          <Stack spacing={1.5} sx={{ alignItems: 'center' }}>
+            <Box sx={{ position: 'relative' }}>
+              {/* Gradient ring with a soft glow around the picture. */}
+              <Box
                 sx={(theme) => ({
-                  position: 'absolute',
-                  right: 6,
-                  bottom: 6,
-                  color: theme.palette.common.white,
-                  background: brandGradient(theme, 135),
-                  border: `3px solid ${theme.palette.background.default}`,
-                  '&:hover': { background: brandGradient(theme, 135), filter: 'brightness(1.1)' },
+                  p: '5px',
+                  borderRadius: '50%',
+                  background: `conic-gradient(from 210deg, ${theme.palette.primary.main}, ${VIOLET}, ${theme.palette.secondary.main}, ${theme.palette.primary.main})`,
+                  boxShadow: `0 0 50px -6px ${alpha(theme.palette.primary.main, 0.7)}`,
                 })}
               >
-                <PhotoCameraIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-          <Typography
-            variant="overline"
-            color="primary"
-            sx={{ fontWeight: 800, letterSpacing: 2, lineHeight: 1.5, pt: 1 }}
-          >
-            {t.eyebrow}
-          </Typography>
-          <Typography
-            id="profile-username"
-            variant="h3"
-            component="h1"
-            sx={{
-              fontWeight: 900,
-              letterSpacing: -1,
-              lineHeight: 1,
-              fontSize: { xs: '2.2rem', md: '3rem' },
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {user.username}
-          </Typography>
-          <Stack
-            direction="row"
-            spacing={0.75}
-            sx={{ alignItems: 'center', color: 'text.secondary' }}
-          >
-            <CalendarMonthIcon sx={{ fontSize: 17 }} aria-hidden />
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {t.memberSince} {formatDate(user.createdAt.slice(0, 10))}
+                <Box sx={{ p: '4px', borderRadius: '50%', bgcolor: 'background.default' }}>
+                  <PlayerAvatar avatar={user.avatar} username={user.username} size={148} />
+                </Box>
+              </Box>
+              <Tooltip title={t.editAvatar}>
+                <IconButton
+                  aria-label={t.editAvatar}
+                  onClick={() => setEditingAvatar(true)}
+                  sx={(theme) => ({
+                    position: 'absolute',
+                    right: 6,
+                    bottom: 6,
+                    color: theme.palette.common.white,
+                    background: brandGradient(theme, 135),
+                    border: `3px solid ${theme.palette.background.default}`,
+                    '&:hover': { background: brandGradient(theme, 135), filter: 'brightness(1.1)' },
+                  })}
+                >
+                  <PhotoCameraIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <Typography
+              variant="overline"
+              color="primary"
+              sx={{ fontWeight: 800, letterSpacing: 2, lineHeight: 1.5, pt: 1 }}
+            >
+              {t.eyebrow}
             </Typography>
+            <Typography
+              id="profile-username"
+              variant="h3"
+              component="h1"
+              sx={{
+                fontWeight: 900,
+                letterSpacing: -1,
+                lineHeight: 1,
+                fontSize: { xs: '2.2rem', md: '3rem' },
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {user.username}
+            </Typography>
+            <Stack
+              direction="row"
+              spacing={0.75}
+              sx={{ alignItems: 'center', color: 'text.secondary' }}
+            >
+              <CalendarMonthIcon sx={{ fontSize: 17 }} aria-hidden />
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {t.memberSince} {formatDate(user.createdAt.slice(0, 10))}
+              </Typography>
+            </Stack>
           </Stack>
-        </Stack>
-      </Box>
-
-      <StatsSection />
-
-      <Box
-        component="section"
-        aria-labelledby="profile-account"
-        sx={(theme) => ({
-          ...panelSx(theme),
-          p: { xs: 2.5, md: 3 },
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          alignItems: { sm: 'center' },
-          justifyContent: 'space-between',
-          gap: 2,
-        })}
-      >
-        <Box sx={{ minWidth: 0 }}>
-          <Typography
-            id="profile-account"
-            variant="overline"
-            component="h2"
-            sx={{ color: 'text.secondary', fontWeight: 800, letterSpacing: 1.6 }}
-          >
-            {t.account}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t.email}
-          </Typography>
-          <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{user.email}</Typography>
         </Box>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<LogoutIcon />}
-          loading={logout.isPending}
-          onClick={() => logout.mutate()}
-          sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
-        >
-          {t.logout}
-        </Button>
-      </Box>
 
-      {editingAvatar ? <AvatarDialog user={user} onClose={() => setEditingAvatar(false)} /> : null}
-    </Stack>
+        <StatsSection />
+
+        <Box
+          component="section"
+          aria-labelledby="profile-account"
+          sx={(theme) => ({
+            ...panelSx(theme),
+            p: { xs: 2.5, md: 3 },
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+          })}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              id="profile-account"
+              variant="overline"
+              component="h2"
+              sx={{ color: 'text.secondary', fontWeight: 800, letterSpacing: 1.6 }}
+            >
+              {t.account}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t.email}
+            </Typography>
+            <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{user.email}</Typography>
+            <Stack spacing={0.75} sx={{ mt: 2.5, alignItems: 'flex-start' }}>
+              <PriceCountrySelect minWidth={240} />
+              <Typography variant="caption" color="text.secondary">
+                {t.countryHelp}
+              </Typography>
+            </Stack>
+            <Box sx={{ mt: 2.5 }}>
+              <VisibilitySetting value={user.profileVisibility} />
+              <Button
+                component={RouterLink}
+                to={playerPath(user.username)}
+                size="small"
+                sx={{ mt: 1, px: 0 }}
+              >
+                {t.viewAsFriends}
+              </Button>
+            </Box>
+          </Box>
+          <Stack
+            spacing={1}
+            sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, alignItems: { sm: 'flex-end' } }}
+          >
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<LogoutIcon />}
+              loading={logout.isPending}
+              onClick={() => logout.mutate()}
+            >
+              {t.logout}
+            </Button>
+            <Button size="small" color="error" onClick={() => setDeletingAccount(true)}>
+              {t.deleteAccount.open}
+            </Button>
+          </Stack>
+        </Box>
+
+        {editingAvatar ? (
+          <AvatarDialog user={user} onClose={() => setEditingAvatar(false)} />
+        ) : null}
+        {deletingAccount ? <DeleteAccountDialog onClose={() => setDeletingAccount(false)} /> : null}
+      </Stack>
+      <Box sx={{ minWidth: 0, position: { lg: 'sticky' }, top: { lg: 96 } }}>
+        <ProfileHighlights />
+      </Box>
+    </Box>
   );
 }

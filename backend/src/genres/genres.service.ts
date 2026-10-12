@@ -14,6 +14,35 @@ export class GenresService {
     return this.genres.find({ order: { name: 'ASC' } });
   }
 
+  /** Provider ids of one of our genres, [] if unknown. */
+  async externalIdsForSlug(provider: CatalogProvider, slug: string): Promise<string[]> {
+    const rows = await this.genres.manager.getRepository(GenreExternalId).find({
+      where: { provider, genre: { slug } },
+      relations: { genre: true },
+    });
+    return rows.map((row) => row.externalId);
+  }
+
+  /** Our genres for provider ids, in the order of `externalIds` (unknown ids skipped). */
+  async findByExternalIds(provider: CatalogProvider, externalIds: string[]): Promise<Genre[]> {
+    if (externalIds.length === 0) {
+      return [];
+    }
+    const rows = await this.genres.manager.getRepository(GenreExternalId).find({
+      where: { provider, externalId: In(externalIds) },
+      relations: { genre: true },
+    });
+    const byExternalId = new Map(rows.map((row) => [row.externalId, row.genre]));
+    const genres = new Map<string, Genre>();
+    for (const externalId of externalIds) {
+      const genre = byExternalId.get(externalId);
+      if (genre) {
+        genres.set(genre.id, genre);
+      }
+    }
+    return [...genres.values()];
+  }
+
   /**
    * Read-only mapping for display: known genres use our (Spanish) name,
    * unknown ones keep the provider name. Nothing is created.

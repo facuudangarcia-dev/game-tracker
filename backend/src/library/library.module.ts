@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CatalogModule } from '../catalog/catalog.module';
+import { SteamExcludedApp } from '../steam/steam-excluded-app.entity';
+import { Achievement } from './achievement.entity';
+import { AchievementsController } from './achievements.controller';
+import { AchievementsService } from './achievements.service';
+import { PlaythroughTimeAdjustment } from './playthrough-time-adjustment.entity';
 import { GamesModule } from '../games/games.module';
 import { Platform } from '../platforms/platform.entity';
 import { DifficultiesController } from './difficulties.controller';
@@ -19,9 +24,11 @@ import { PlaytimeController } from './playtime.controller';
 import { PlaytimeService } from './playtime.service';
 import { UserGameAccess } from './user-game-access.service';
 import { UserGame } from './user-game.entity';
+import { ActivityModule } from '../activity/activity.module';
 
 @Module({
   imports: [
+    ActivityModule,
     TypeOrmModule.forFeature([
       UserGame,
       Playthrough,
@@ -30,6 +37,9 @@ import { UserGame } from './user-game.entity';
       PlaythroughTime,
       UserGameSummary,
       Platform,
+      Achievement,
+      PlaythroughTimeAdjustment,
+      SteamExcludedApp,
     ]),
     GamesModule,
     CatalogModule,
@@ -40,6 +50,7 @@ import { UserGame } from './user-game.entity';
     PlaytimeController,
     PlatinumController,
     DifficultiesController,
+    AchievementsController,
   ],
   providers: [
     LibraryService,
@@ -48,7 +59,8 @@ import { UserGame } from './user-game.entity';
     PlaytimeService,
     PlatinumService,
     DifficultiesService,
+    AchievementsService,
   ],
-  exports: [LibraryService, UserGameAccess],
+  exports: [LibraryService, UserGameAccess, DifficultiesService, PlatinumService],
 })
 export class LibraryModule {}

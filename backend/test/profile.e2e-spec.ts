@@ -5,7 +5,7 @@ import type { DataSource } from 'typeorm';
 import { ASSET_STORAGE, type AssetStorage } from '../src/assets/asset-storage';
 import type { UserGameDetailsDto } from '../src/library/dto/user-game-response.dto';
 import { Platform } from '../src/platforms/platform.entity';
-import type { PlayerStatsDto } from '../src/profile/profile.service';
+import type { PlayerHighlightsDto, PlayerStatsDto } from '../src/profile/profile.service';
 import type { UserResponseDto } from '../src/users/user-response.dto';
 import { User } from '../src/users/user.entity';
 import { createTestApp } from './create-test-app';
@@ -129,12 +129,42 @@ describe('Profile: avatar and stats (e2e)', () => {
     });
   });
 
+  describe('country', () => {
+    it('starts with the country chosen at sign-up and stores the country of prices', async () => {
+      expect((await me(alice)).country).toBe('AR');
+
+      const body = (await as(app, alice).put('/api/profile/country', { country: 'au' }).expect(200))
+        .body as UserResponseDto;
+
+      expect(body.country).toBe('AU');
+      expect((await me(alice)).country).toBe('AU');
+      expect((await me(bob)).country).toBe('AR');
+
+      await as(app, alice).put('/api/profile/country', { country: null }).expect(200);
+      expect((await me(alice)).country).toBeNull();
+    });
+
+    it.each([[{ country: 'XX' }], [{ country: 'ARG' }], [{ country: 7 }], [{}]])(
+      'rejects an invalid country %p',
+      async (body) => {
+        await as(app, alice).put('/api/profile/country', body).expect(400);
+      },
+    );
+
+    it('requires a session', async () => {
+      await request(app.getHttpServer())
+        .put('/api/profile/country')
+        .send({ country: 'AR' })
+        .expect(401);
+    });
+  });
+
   describe('stats', () => {
     const add = async (
       user: TestUser,
       name: string,
       platform: string,
-      status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED',
+      status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'PLAYED',
       rating: number | null,
     ) => {
       const created = (
@@ -162,6 +192,7 @@ describe('Profile: avatar and stats (e2e)', () => {
         totalGames: 0,
         completed: 0,
         inProgress: 0,
+        played: 0,
         pending: 0,
         platinums: 0,
         totalMinutes: 0,
@@ -176,15 +207,16 @@ describe('Profile: avatar and stats (e2e)', () => {
       const done = await add(alice, 'Done', 'ps5', 'COMPLETED', 90);
       const playing = await add(alice, 'Playing', 'ps5', 'IN_PROGRESS', 75);
       await add(alice, 'Later', 'pc', 'PENDING', null);
+      await add(alice, 'Online', 'pc', 'PLAYED', null);
       await add(bob, 'Not mine', 'pc', 'COMPLETED', 10);
 
       const base = (game: UserGameDetailsDto) => `/api/library/${game.id}`;
       await as(app, alice)
-        .put(`${base(done)}/playthroughs/${done.playthroughs[0].id}/manual-time`, { minutes: 600 })
+        .patch(`${base(done)}/playthroughs/${done.playthroughs[0].id}`, { previousMinutes: 600 })
         .expect(200);
       await as(app, alice)
-        .put(`${base(playing)}/playthroughs/${playing.playthroughs[0].id}/manual-time`, {
-          minutes: 90,
+        .patch(`${base(playing)}/playthroughs/${playing.playthroughs[0].id}`, {
+          previousMinutes: 90,
         })
         .expect(200);
       await as(app, alice)
@@ -198,20 +230,148 @@ describe('Profile: avatar and stats (e2e)', () => {
         .body as PlayerStatsDto;
 
       expect(stats).toEqual({
-        totalGames: 3,
+        totalGames: 4,
         completed: 1,
         inProgress: 1,
+        played: 1,
         pending: 1,
         platinums: 1,
         totalMinutes: 690,
         rated: 2,
         averageRating: 82.5,
-        playthroughs: 4,
+        playthroughs: 5,
         topPlatform: { name: 'PlayStation 5', shortName: 'PS5', games: 2 },
       });
     });
 
+    const highlights = async (user: TestUser) =>
+      (await as(app, user).get('/api/profile/highlights').expect(200)).body as PlayerHighlightsDto;
+    const setPrevious = (user: TestUser, game: UserGameDetailsDto, minutes: number) =>
+      as(app, user)
+        .patch(`/api/library/${game.id}/playthroughs/${game.playthroughs[0].id}`, {
+          previousMinutes: minutes,
+        })
+        .expect(200);
+    const favorite = (user: TestUser, game: UserGameDetailsDto, value: boolean) =>
+      as(app, user).patch(`/api/library/${game.id}`, { favorite: value });
+
+    it('has no highlights for a new player', async () => {
+      expect(await highlights(alice)).toEqual({
+        mostPlayed: null,
+        fastest: null,
+        highestRated: null,
+        lowestRated: null,
+        favorites: [],
+      });
+    });
+
+    it("highlights the player's own most played, fastest and best/worst rated games", async () => {
+      const witcher = await add(alice, 'Witcher', 'ps5', 'COMPLETED', 90);
+      const quick = await add(alice, 'Quick', 'pc', 'COMPLETED', 75);
+      const endless = await add(alice, 'Endless', 'ps5', 'IN_PROGRESS', 40);
+      await add(alice, 'Later', 'pc', 'PENDING', null);
+      const notMine = await add(bob, 'Not mine', 'pc', 'COMPLETED', 10);
+      await setPrevious(alice, witcher, 600);
+      await setPrevious(alice, endless, 900);
+      await setPrevious(bob, notMine, 5);
+      // "Quick" is completed without time: it never counts as the fastest.
+      // A second, short completed playthrough of "Witcher" is the fastest one.
+      await as(app, alice)
+        .post(`/api/library/${witcher.id}/playthroughs`, {
+          name: 'Speedrun',
+          status: 'COMPLETED',
+          startDate: '2025-03-01',
+          completionDate: '2025-03-01',
+          previousMinutes: 30,
+        })
+        .expect(201);
+
+      const result = await highlights(alice);
+
+      const ref = (game: UserGameDetailsDto, shortName: string) => ({
+        userGameId: game.id,
+        name: game.game.name,
+        coverUrl: null,
+        platform: { shortName },
+      });
+      expect(result).toEqual({
+        mostPlayed: { ...ref(endless, 'PS5'), minutes: 900 },
+        fastest: {
+          ...ref(witcher, 'PS5'),
+          minutes: 30,
+          playthroughNumber: 2,
+          playthroughName: 'Speedrun',
+        },
+        highestRated: { ...ref(witcher, 'PS5'), rating: 90 },
+        lowestRated: { ...ref(endless, 'PS5'), rating: 40 },
+        favorites: [],
+      });
+      expect(quick.rating).toBe(75);
+    });
+
+    it('does not repeat the only rated game as the lowest rated', async () => {
+      await add(alice, 'Only', 'pc', 'COMPLETED', 80);
+      const result = await highlights(alice);
+      expect(result.highestRated?.rating).toBe(80);
+      expect(result.lowestRated).toBeNull();
+    });
+
+    it('marks up to 5 favorites, in the order they were marked', async () => {
+      const games: UserGameDetailsDto[] = [];
+      for (const name of ['A', 'B', 'C', 'D', 'E', 'F']) {
+        games.push(await add(alice, name, 'pc', 'PENDING', null));
+      }
+      for (const game of [games[2], games[0], games[1], games[3], games[4]]) {
+        const body = (await favorite(alice, game, true).expect(200)).body as UserGameDetailsDto;
+        expect(body.favorite).toBe(true);
+      }
+      // Marking again keeps its place; a sixth one is rejected.
+      await favorite(alice, games[2], true).expect(200);
+      const rejected = await favorite(alice, games[5], true).expect(409);
+      expect((rejected.body as { code: string }).code).toBe('FAVORITES_LIMIT_REACHED');
+
+      expect((await highlights(alice)).favorites.map((g) => g.name)).toEqual([
+        'C',
+        'A',
+        'B',
+        'D',
+        'E',
+      ]);
+
+      // Unmarking frees a place; the list shows the flag too.
+      await favorite(alice, games[0], false).expect(200);
+      await favorite(alice, games[5], true).expect(200);
+      expect((await highlights(alice)).favorites.map((g) => g.name)).toEqual([
+        'C',
+        'B',
+        'D',
+        'E',
+        'F',
+      ]);
+      const list = (await as(app, alice).get('/api/library').expect(200)).body as {
+        game: { name: string };
+        favorite: boolean;
+      }[];
+      expect(
+        list
+          .filter((g) => g.favorite)
+          .map((g) => g.game.name)
+          .sort(),
+      ).toEqual(['B', 'C', 'D', 'E', 'F']);
+      // Other players' limits are independent and their favorites never show here.
+      const bobs = await add(bob, 'Bob game', 'pc', 'PENDING', null);
+      await favorite(bob, bobs, true).expect(200);
+      expect((await highlights(alice)).favorites).toHaveLength(5);
+      expect((await highlights(bob)).favorites.map((g) => g.name)).toEqual(['Bob game']);
+    });
+
+    it.each([[null], ['yes'], [1]])('rejects favorite = %p', async (value) => {
+      const game = await add(alice, 'A', 'pc', 'PENDING', null);
+      await as(app, alice).patch(`/api/library/${game.id}`, { favorite: value }).expect(400);
+    });
+
     it('requires a session', async () => {
+      await request(app.getHttpServer()).get('/api/profile/highlights').expect(401);
       await request(app.getHttpServer()).get('/api/profile/stats').expect(401);
       await request(app.getHttpServer()).put('/api/profile/avatar').send({}).expect(401);
       await request(app.getHttpServer()).get('/api/profile/avatar/image').expect(401);

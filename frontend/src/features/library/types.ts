@@ -1,8 +1,7 @@
 /** API shapes of the library and catalog (mirrors the backend DTOs). */
 
-export type PlayStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-export type TimeMode = 'MANUAL' | 'SESSIONS';
-
+/** PLAYED: played, with no end to reach (e.g. online games without a story), decision #77. */
+export type PlayStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'PLAYED';
 export interface Platform {
   id: string;
   slug: string;
@@ -62,7 +61,21 @@ export interface UserGameListItem {
   totalMinutes: number;
   rating: number | null;
   platinumAchieved: boolean;
+  favorite: boolean;
   createdAt: string;
+  /** Hardest difficulty played (in progress or completed playthroughs). */
+  difficulty: PlayedDifficulty | null;
+  /** Synced with a Steam game (decision #78). */
+  steam: boolean;
+  /** Achieved / total achievements; null when the game has none. */
+  achievements: { achieved: number; total: number } | null;
+}
+
+/** A difficulty with its 0-based place in its game's list of `levels`. */
+export interface PlayedDifficulty {
+  name: string;
+  level: number;
+  levels: number;
 }
 
 export type DifficultyKind = 'PLAYTHROUGH' | 'PLATINUM';
@@ -84,8 +97,11 @@ export interface Playthrough {
   startDate: string | null;
   completionDate: string | null;
   difficulty: { id: string; name: string } | null;
-  timeMode: TimeMode;
-  manualTimeMinutes: number;
+  /** Time played before logging sessions; on Steam games, the user's change (may be negative). */
+  previousMinutes: number;
+  /** Time according to Steam (playthrough #1 of Steam games). */
+  steamMinutes: number;
+  /** Playthrough time: previous time + all its sessions. */
   minutes: number;
   notes: string | null;
   createdAt: string;
@@ -99,8 +115,6 @@ export interface GamingSession {
   playedAt: string;
   durationMinutes: number;
   notes: string | null;
-  /** False while its playthrough is in MANUAL mode (kept, but not counted). */
-  countsTowardTime: boolean;
 }
 
 export interface Platinum {
@@ -117,6 +131,26 @@ export interface UserGameDetails extends Omit<UserGameListItem, 'game'> {
   playthroughs: Playthrough[];
   sessions: GamingSession[];
   difficulties: Difficulty[];
+  /** Steam's first, then the user's own. */
+  achievementList: Achievement[];
+}
+
+/** An achievement of the user's game (decision #78). */
+export interface Achievement {
+  id: string;
+  /** STEAM: synced with Steam (texts read-only); MANUAL: added by the user. */
+  source: 'STEAM' | 'MANUAL';
+  name: string;
+  description: string | null;
+  /** Spanish texts from Steam, if the game has them. */
+  nameEs: string | null;
+  descriptionEs: string | null;
+  iconUrl: string | null;
+  iconLockedUrl: string | null;
+  /** Hidden on Steam: the description is only shown once achieved (or on demand). */
+  hidden: boolean;
+  achieved: boolean;
+  achievedAt: string | null;
 }
 
 export type LibrarySortField =
@@ -141,6 +175,8 @@ export interface InitialPlaythroughInput {
   completionDate?: string | null;
   /** One of the default difficulty names. */
   difficulty?: string | null;
+  /** Time already played, in minutes (the playthrough's previous time). */
+  previousMinutes?: number;
 }
 
 /** Game source: catalog game (imported if needed), existing game or new manual game. */
@@ -197,6 +233,8 @@ export interface CatalogGame {
   relatedGames: RelatedGame[];
   /** The user's entries of this game (one per platform), with their progress. */
   libraryEntries: LibraryEntry[];
+  /** The user's wishlist entry of this game, if any. */
+  wishlistItemId: string | null;
 }
 
 export interface RelatedGame {

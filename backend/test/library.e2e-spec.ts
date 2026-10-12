@@ -83,8 +83,7 @@ describe('Library: UserGame domain (e2e)', () => {
           number: 1,
           name: null,
           status: 'PENDING',
-          timeMode: 'MANUAL',
-          manualTimeMinutes: 0,
+          previousMinutes: 0,
           minutes: 0,
           startDate: null,
           completionDate: null,
@@ -296,10 +295,10 @@ describe('Library: UserGame domain (e2e)', () => {
       expect(body.completionDate).toBe('2025-03-10');
     });
 
-    it('sums manual time across playthroughs', async () => {
+    it('sums the previous time across playthroughs', async () => {
       await setPlaythroughs(userGameId, [{ status: 'PENDING' }, { status: 'PENDING' }]);
       await dataSource.query(
-        'UPDATE playthroughs SET manual_time_minutes = number * 60 WHERE user_game_id = $1',
+        'UPDATE playthroughs SET previous_time_minutes = number * 60 WHERE user_game_id = $1',
         [userGameId],
       );
 
@@ -323,10 +322,11 @@ describe('Library: UserGame domain (e2e)', () => {
         ),
       ).rejects.toThrow(/UQ_user_games_user_game_platform/);
       await expect(
-        dataSource.query(`UPDATE playthroughs SET status = 'COMPLETED' WHERE user_game_id = $1`, [
-          created.id,
-        ]),
-      ).rejects.toThrow(/CHK_playthroughs_completion_matches_status/);
+        dataSource.query(
+          `UPDATE playthroughs SET completion_date = '2025-01-01' WHERE user_game_id = $1`,
+          [created.id],
+        ),
+      ).rejects.toThrow(/CHK_playthroughs_completion_only_completed/);
       await expect(
         dataSource.query(
           `UPDATE playthroughs SET start_date = '2025-02-01', completion_date = '2025-01-01',

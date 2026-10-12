@@ -1,11 +1,5 @@
 import { apiFetch } from '../../lib/api/client';
-import type {
-  Difficulty,
-  DifficultyKind,
-  PlayStatus,
-  TimeMode,
-  UserGameDetails,
-} from '../library/types';
+import type { Difficulty, DifficultyKind, PlayStatus, UserGameDetails } from '../library/types';
 
 const base = (userGameId: string) => `/library/${userGameId}`;
 const send = <T>(path: string, method: string, body?: unknown) =>
@@ -23,12 +17,20 @@ export interface PlaythroughChanges {
   startDate?: string | null;
   completionDate?: string | null;
   notes?: string | null;
+  /** Time played before logging sessions (whole minutes). */
+  previousMinutes?: number;
 }
 
 export interface SessionInput {
   playedAt: string;
   durationMinutes: number;
   notes?: string | null;
+}
+
+export interface AchievementInput {
+  name?: string;
+  description?: string | null;
+  achieved?: boolean;
 }
 
 export interface PlatinumInput {
@@ -51,27 +53,19 @@ export const detailApi = {
   deletePlaythrough: (id: string, playthroughId: string) =>
     send<UserGameDetails>(`${base(id)}/playthroughs/${playthroughId}`, 'DELETE'),
 
-  setManualTime: (id: string, playthroughId: string, minutes: number) =>
-    send<UserGameDetails>(`${base(id)}/playthroughs/${playthroughId}/manual-time`, 'PUT', {
-      minutes,
-    }),
-  changeTimeMode: (
-    id: string,
-    playthroughId: string,
-    mode: TimeMode,
-    initialSession?: { playedAt: string },
-  ) =>
-    send<UserGameDetails>(`${base(id)}/playthroughs/${playthroughId}/time-mode`, 'PUT', {
-      mode,
-      initialSession,
-    }),
-
   createSession: (id: string, playthroughId: string, input: SessionInput) =>
     send<UserGameDetails>(`${base(id)}/playthroughs/${playthroughId}/sessions`, 'POST', input),
   updateSession: (id: string, sessionId: string, input: Partial<SessionInput>) =>
     send<UserGameDetails>(`${base(id)}/sessions/${sessionId}`, 'PATCH', input),
   deleteSession: (id: string, sessionId: string) =>
     send<UserGameDetails>(`${base(id)}/sessions/${sessionId}`, 'DELETE'),
+
+  createAchievement: (id: string, input: { name: string; description?: string | null }) =>
+    send<UserGameDetails>(`${base(id)}/achievements`, 'POST', input),
+  updateAchievement: (id: string, achievementId: string, input: AchievementInput) =>
+    send<UserGameDetails>(`${base(id)}/achievements/${achievementId}`, 'PATCH', input),
+  deleteAchievement: (id: string, achievementId: string) =>
+    send<UserGameDetails>(`${base(id)}/achievements/${achievementId}`, 'DELETE'),
 
   updatePlatinum: (id: string, input: PlatinumInput) =>
     send<UserGameDetails>(`${base(id)}/platinum`, 'PUT', input),

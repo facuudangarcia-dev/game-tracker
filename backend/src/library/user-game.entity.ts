@@ -24,11 +24,17 @@ import { Playthrough } from './playthrough.entity';
  */
 @Entity({ name: 'user_games' })
 @Unique('UQ_user_games_user_game_platform', ['userId', 'gameId', 'platformId'])
+// A Steam game is linked to at most one of the user's games (decision #78).
+@Index('UQ_user_games_user_steam_app', ['userId', 'steamAppId'], {
+  unique: true,
+  where: '"steam_app_id" IS NOT NULL',
+})
 @Check(
   'CHK_user_games_rating_range',
   `"rating" IS NULL OR ("rating" >= ${RATING_MIN} AND "rating" <= ${RATING_MAX})`,
 )
 @Check('CHK_user_games_notes_length', `char_length("notes") <= ${NOTE_MAX_LENGTH}`)
+@Check('CHK_user_games_steam_imported', `NOT "steam_imported" OR "steam_app_id" IS NOT NULL`)
 // Platinum data only exists when achieved; then date and time are required.
 @Check(
   'CHK_user_games_platinum_fields',
@@ -71,6 +77,27 @@ export class UserGame {
   @JoinColumn({ name: 'platform_id' })
   platform: Platform;
 
+  /**
+   * Steam app this game is synced with (decision #78): its hours and
+   * achievements come from Steam. Kept after unlinking Steam.
+   */
+  @Column({ name: 'steam_app_id', type: 'int', nullable: true })
+  steamAppId: number | null;
+
+  /**
+   * Added to the library by Steam's import (not a game the user already had on
+   * PC and Steam only linked): unlinking Steam can delete these.
+   */
+  @Column({ name: 'steam_imported', type: 'boolean', default: false })
+  steamImported: boolean;
+
+  /**
+   * Every Steam achievement was unlocked on Steam at the last check (decision
+   * #81): the platinum is added automatically only when this turns true.
+   */
+  @Column({ name: 'steam_all_achieved', type: 'boolean', default: false })
+  steamAllAchieved: boolean;
+
   /** Personal rating, integer 10-100; null means not rated. */
   @Column({ type: 'smallint', nullable: true })
   rating: number | null;
@@ -78,6 +105,10 @@ export class UserGame {
   /** General note about the game (plain text). */
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  /** When the game was marked as a favorite (null = not a favorite). Orders the favorites. */
+  @Column({ name: 'favorite_at', type: 'timestamptz', nullable: true })
+  favoriteAt: Date | null;
 
   /** Platinum is independent of the status (decision #19 of the spec). */
   @Column({ name: 'platinum_achieved', type: 'boolean', default: false })

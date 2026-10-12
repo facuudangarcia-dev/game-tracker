@@ -3,13 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyStats, mockApi, testUser } from '../../test/mockApi';
 import { renderRoute } from '../../test/renderRoute';
-import type { PlayerStats } from './api';
+import type { PlayerHighlights, PlayerStats } from './api';
 
 const stats: PlayerStats = {
   totalGames: 12,
   completed: 6,
   inProgress: 3,
-  pending: 3,
+  played: 1,
+  pending: 2,
   platinums: 2,
   totalMinutes: 7623,
   rated: 8,
@@ -65,7 +66,65 @@ describe('profile', () => {
     expect(breakdown).toHaveTextContent('50% completado');
     expect(breakdown).toHaveTextContent('Completados6');
     expect(breakdown).toHaveTextContent('En progreso3');
-    expect(breakdown).toHaveTextContent('Pendientes3');
+    expect(breakdown).toHaveTextContent('Jugados1');
+    expect(breakdown).toHaveTextContent('Pendientes2');
+  });
+
+  it('shows favorites and standout games in the side column, linking to each game', async () => {
+    const game = (userGameId: string, name: string, shortName = 'PS5') => ({
+      userGameId,
+      name,
+      coverUrl: null,
+      platform: { shortName },
+    });
+    const highlights: PlayerHighlights = {
+      mostPlayed: { ...game('ug-1', 'Elden Ring'), minutes: 6000 },
+      fastest: {
+        ...game('ug-2', 'Portal', 'PC'),
+        minutes: 150,
+        playthroughNumber: 2,
+        playthroughName: 'Speedrun',
+      },
+      highestRated: { ...game('ug-1', 'Elden Ring'), rating: 98 },
+      lowestRated: { ...game('ug-3', 'Anthem'), rating: 40 },
+      favorites: [game('ug-2', 'Portal', 'PC'), game('ug-1', 'Elden Ring')],
+    };
+    const { router } = setup({
+      'GET /profile/highlights': () => ({ status: 200, body: highlights }),
+    });
+
+    const aside = await screen.findByRole('complementary', { name: 'Destacados del jugador' });
+    const favorites = await within(aside).findByRole('region', { name: 'Juegos favoritos' });
+    expect(within(favorites).getByText('2 de 5')).toBeInTheDocument();
+    expect(
+      within(favorites)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual([expect.stringContaining('Portal'), expect.stringContaining('Elden Ring')]);
+    const card = (name: string) => within(aside).getByRole('region', { name });
+    expect(card('Juego más jugado')).toHaveTextContent('Elden Ring');
+    expect(card('Juego más jugado')).toHaveTextContent('100 h');
+    expect(card('Juego pasado más rápido')).toHaveTextContent('Partida #2 · Speedrun');
+    expect(card('Juego pasado más rápido')).toHaveTextContent('2 h 30 min');
+    expect(card('Mayor puntuación')).toHaveTextContent('98/100');
+    expect(card('Menor puntuación')).toHaveTextContent('Anthem');
+
+    await userEvent.click(within(card('Menor puntuación')).getByRole('link'));
+    expect(router.state.location.pathname).toBe('/games/ug-3');
+  });
+
+  it('explains how to fill the highlights when there is no data yet', async () => {
+    setup();
+
+    const aside = await screen.findByRole('complementary', { name: 'Destacados del jugador' });
+    expect(
+      await within(aside).findByText('Marcá hasta 5 juegos con el corazón desde Mis juegos.'),
+    ).toBeInTheDocument();
+    expect(within(aside).getByRole('link', { name: 'Ir a Mis juegos' })).toHaveAttribute(
+      'href',
+      '/games',
+    );
+    expect(within(aside).getByText('Necesitás al menos dos juegos valorados.')).toBeInTheDocument();
   });
 
   it('invites to add games when the library is empty', async () => {
@@ -130,5 +189,41 @@ describe('profile', () => {
 
     expect(within(dialog).getByText('La imagen supera los 2 MB.')).toBeInTheDocument();
     expect(calls.some((c) => c.path === '/profile/avatar/image')).toBe(false);
+  });
+
+  describe('deleting the account', () => {
+    it('asks for the password and explains a wrong one', async () => {
+      const { calls } = setup({
+        'POST /auth/delete-account': () => ({ status: 400, body: { code: 'WRONG_PASSWORD' } }),
+      });
+      await userEvent.click(await screen.findByRole('button', { name: 'Eliminar mi cuenta' }));
+      const dialog = await screen.findByRole('dialog', { name: '¿Eliminar tu cuenta?' });
+      expect(within(dialog).getByText(/no se puede deshacer/)).toBeInTheDocument();
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Eliminar mi cuenta' }));
+      expect(calls.some((c) => c.path === '/auth/delete-account')).toBe(false);
+
+      await userEvent.type(within(dialog).getByLabelText(/Tu contraseña/), 'wrong-pass');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Eliminar mi cuenta' }));
+      expect(await within(dialog).findByText('La contraseña no es correcta.')).toBeInTheDocument();
+    });
+
+    it('deletes it and leaves the profile', async () => {
+      const { calls, router } = setup({
+        'POST /auth/delete-account': () => ({ status: 204 }),
+      });
+      await userEvent.click(await screen.findByRole('button', { name: 'Eliminar mi cuenta' }));
+      const dialog = await screen.findByRole('dialog');
+      await userEvent.type(within(dialog).getByLabelText(/Tu contraseña/), 'super-secret-1');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Eliminar mi cuenta' }));
+
+      await waitFor(() =>
+        expect(calls.find((c) => c.path === '/auth/delete-account')?.body).toEqual({
+          password: 'super-secret-1',
+        }),
+      );
+      await waitFor(() => expect(router.state.location.pathname).not.toBe('/profile'));
+      expect(screen.queryByRole('button', { name: 'Menú de usuario' })).not.toBeInTheDocument();
+    });
   });
 });

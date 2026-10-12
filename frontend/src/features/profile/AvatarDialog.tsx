@@ -14,7 +14,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { type ChangeEvent, useRef, useState } from 'react';
 import { messages } from '../../i18n/messages';
 import { getApiErrorMessage } from '../../lib/api/errors';
-import { ambientBackground, brandGradient, dialogPaperSx } from '../../theme/brand';
+import { ambientBackground, brandGradient, dialogPaperSx, ink } from '../../theme/brand';
 import type { User } from '../auth/api';
 import { useRemoveAvatar, useSetAvatarPreset, useUploadAvatar } from './api';
 import { AvatarIllustration } from './AvatarIllustration';
@@ -167,7 +167,7 @@ export function AvatarDialog({ user, onClose }: { user: User; onClose: () => voi
                     overflow: 'hidden',
                     outline: checked
                       ? `3px solid ${theme.palette.primary.main}`
-                      : `1px solid ${alpha(theme.palette.common.white, 0.12)}`,
+                      : `1px solid ${alpha(ink(theme), 0.12)}`,
                     outlineOffset: checked ? 2 : 0,
                     boxShadow: checked
                       ? `0 0 22px ${alpha(theme.palette.primary.main, 0.6)}`

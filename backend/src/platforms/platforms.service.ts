@@ -34,6 +34,15 @@ export class PlatformsService {
     });
     return new Map(rows.map((row) => [row.externalId, row.platform]));
   }
+
+  /** Provider ids of one of our platforms (e.g. PC → Windows, Mac, Linux), [] if unknown. */
+  async externalIdsForSlug(provider: CatalogProvider, slug: string): Promise<string[]> {
+    const rows = await this.externalIds.find({
+      where: { provider, platform: { slug } },
+      relations: { platform: true },
+    });
+    return rows.map((row) => row.externalId);
+  }
 }
 
 /** Distinct platforms for a list of external ids, in display order. */

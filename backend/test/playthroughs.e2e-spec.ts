@@ -83,7 +83,7 @@ describe('Playthroughs and difficulties (e2e)', () => {
         [1, null, 'PENDING'],
         [2, 'NG+', 'IN_PROGRESS'],
       ]);
-      expect(second.playthroughs[1]).toMatchObject({ timeMode: 'MANUAL', manualTimeMinutes: 0 });
+      expect(second.playthroughs[1]).toMatchObject({ previousMinutes: 0, minutes: 0 });
       expect(second.status).toBe('IN_PROGRESS');
     });
 
@@ -121,7 +121,6 @@ describe('Playthroughs and difficulties (e2e)', () => {
 
   describe('status and dates', () => {
     it.each([
-      [{ status: 'COMPLETED' }, 'COMPLETION_DATE_REQUIRED'],
       [{ status: 'IN_PROGRESS', completionDate: '2025-01-01' }, 'COMPLETION_DATE_NOT_ALLOWED'],
       [{ completionDate: '2025-01-01' }, 'COMPLETION_DATE_NOT_ALLOWED'],
       [
@@ -131,6 +130,11 @@ describe('Playthroughs and difficulties (e2e)', () => {
     ])('rejects %j with %s', async (body, code) => {
       const response = await patchPlaythrough(first().id, body).expect(400);
       expect(response.body).toMatchObject({ code });
+    });
+
+    it('allows completing a playthrough without a completion date', async () => {
+      const response = await patchPlaythrough(first().id, { status: 'COMPLETED' }).expect(200);
+      expect(response.body).toMatchObject({ status: 'COMPLETED', completionDate: null });
     });
 
     it('rejects a future completion date but allows a future start date', async () => {
@@ -174,6 +178,37 @@ describe('Playthroughs and difficulties (e2e)', () => {
         completionDate: null,
         notes: 'Great ending',
       });
+    });
+
+    it('has a PLAYED status, without completion date, ranked between COMPLETED and PENDING', async () => {
+      const played = (
+        await patchPlaythrough(first().id, { status: 'PLAYED', startDate: '2025-01-01' }).expect(
+          200,
+        )
+      ).body as UserGameDetailsDto;
+      expect(played).toMatchObject({ status: 'PLAYED', completionDate: null });
+      expect(played.playthroughs[0]).toMatchObject({ status: 'PLAYED', startDate: '2025-01-01' });
+      await patchPlaythrough(first().id, { completionDate: '2025-02-01' }).expect(400);
+
+      // PENDING < PLAYED < COMPLETED < IN_PROGRESS.
+      const second = (await createPlaythrough({}).expect(201)).body as UserGameDetailsDto;
+      expect(second.status).toBe('PLAYED');
+      const id = second.playthroughs[1].id;
+      const completed = (await patchPlaythrough(id, { status: 'COMPLETED' }).expect(200))
+        .body as UserGameDetailsDto;
+      expect(completed.status).toBe('COMPLETED');
+      const playing = (await patchPlaythrough(id, { status: 'IN_PROGRESS' }).expect(200))
+        .body as UserGameDetailsDto;
+      expect(playing.status).toBe('IN_PROGRESS');
+
+      const list = (await as(app, alice).get('/api/library?status=PLAYED').expect(200))
+        .body as unknown[];
+      expect(list).toHaveLength(0);
+      await patchPlaythrough(id, { status: 'PENDING' }).expect(200);
+      expect(
+        ((await as(app, alice).get('/api/library?status=PLAYED').expect(200)).body as unknown[])
+          .length,
+      ).toBe(1);
     });
 
     it('derives the game completion from the FIRST completed playthrough', async () => {

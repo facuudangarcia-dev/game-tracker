@@ -22,6 +22,7 @@ import { Section } from '../../../components/Section';
 import { VIOLET } from '../../../theme/brand';
 import { messages } from '../../../i18n/messages';
 import { getApiErrorMessage } from '../../../lib/api/errors';
+import { DifficultyBadge } from '../../library/DifficultyBadge';
 import type { Difficulty, DifficultyKind, UserGameDetails } from '../../library/types';
 import { DIFFICULTY_NAME_MAX_LENGTH } from '../../library/validation';
 import { detailApi } from '../api';
@@ -122,7 +123,11 @@ function DifficultyList({ userGameId, kind, title, difficulties, onAction }: Dif
               <ListItemText
                 primary={
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                    <span>{difficulty.name}</span>
+                    <DifficultyBadge
+                      name={difficulty.name}
+                      level={index}
+                      levels={difficulties.length}
+                    />
                     {difficulty.inUse ? (
                       <Chip size="small" variant="outlined" label={t.inUseBadge} />
                     ) : null}

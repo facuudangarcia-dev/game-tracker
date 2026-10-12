@@ -32,7 +32,8 @@ describe('library form validation', () => {
 
   it('validates playthrough dates like the backend', () => {
     const today = '2026-10-06';
-    expect(validatePlaythroughDates('COMPLETED', '', '', today).completionDate).toBeDefined();
+    expect(validatePlaythroughDates('COMPLETED', '', '', today)).toEqual({});
+    expect(validatePlaythroughDates('COMPLETED', '2026-01-01', '', today)).toEqual({});
     expect(
       validatePlaythroughDates('COMPLETED', '', '2026-10-07', today).completionDate,
     ).toBeDefined();

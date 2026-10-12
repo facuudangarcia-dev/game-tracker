@@ -19,7 +19,11 @@ const item = (overrides: Partial<UserGameListItem> = {}): UserGameListItem => ({
   totalMinutes: 900,
   rating: null,
   platinumAchieved: true,
+  favorite: false,
   createdAt: '2025-01-01T00:00:00.000Z',
+  difficulty: null,
+  steam: false,
+  achievements: null,
   ...overrides,
 });
 
@@ -49,6 +53,88 @@ describe('library list', () => {
     expect(within(card).getByRole('img', { name: 'Platino' })).toBeInTheDocument();
     expect(within(card).getByText('Sin valorar')).toBeInTheDocument();
     expect(screen.getByText('1 juego')).toBeInTheDocument();
+  });
+
+  it('shows the hardest difficulty played on the card, with its level', async () => {
+    setup({
+      'GET /library': () => ({
+        status: 200,
+        body: [
+          item({ difficulty: { name: 'Difícil', level: 2, levels: 3 } }),
+          item({ id: 'ug-2', game: { id: 'g-2', name: 'Hades', coverUrl: null, isManual: false } }),
+        ],
+      }),
+    });
+
+    const card = await screen.findByRole('article', { name: 'Bloodborne' });
+    expect(
+      within(card).getByRole('img', { name: 'Dificultad: Difícil (3 de 3)' }),
+    ).toBeInTheDocument();
+    // No difficulty played: nothing is shown.
+    const hades = screen.getByRole('article', { name: 'Hades' });
+    expect(within(hades).queryByRole('img', { name: /Dificultad/ })).not.toBeInTheDocument();
+  });
+
+  it('shows the achievements progress and Steam games outside the catalog', async () => {
+    setup({
+      'GET /library': () => ({
+        status: 200,
+        body: [
+          item({ steam: true, achievements: { achieved: 12, total: 33 } }),
+          item({
+            id: 'ug-2',
+            steam: true,
+            game: { id: 'g-2', name: 'Tiny Indie', coverUrl: null, isManual: true },
+          }),
+        ],
+      }),
+    });
+
+    const card = await screen.findByRole('article', { name: 'Bloodborne' });
+    expect(within(card).getByRole('img', { name: '12 de 33 logros' })).toBeInTheDocument();
+    expect(within(card).queryByText('Manual: no está en el catálogo')).not.toBeInTheDocument();
+    const indie = screen.getByRole('article', { name: 'Tiny Indie' });
+    expect(within(indie).getByText('Manual: no está en el catálogo')).toBeInTheDocument();
+    expect(within(indie).queryByRole('img', { name: /logros/ })).not.toBeInTheDocument();
+  });
+
+  it('marks and unmarks a favorite from the card', async () => {
+    let favorite = false;
+    const { calls } = setup({
+      'GET /library': () => ({ status: 200, body: [item({ favorite })] }),
+      'PATCH /library/ug-1': (request) => {
+        favorite = (request.body as { favorite: boolean }).favorite;
+        return { status: 200, body: { ...item({ favorite }) } };
+      },
+    });
+
+    const card = await screen.findByRole('article', { name: 'Bloodborne' });
+    const heart = within(card).getByRole('button', { name: 'Marcar Bloodborne como favorito' });
+    expect(heart).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(heart);
+
+    const marked = await within(card).findByRole('button', {
+      name: 'Quitar Bloodborne de favoritos',
+    });
+    expect(marked).toHaveAttribute('aria-pressed', 'true');
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ favorite: true });
+  });
+
+  it('explains the limit when there are already 5 favorites', async () => {
+    setup({
+      'PATCH /library/ug-1': () => ({
+        status: 409,
+        body: { statusCode: 409, code: 'FAVORITES_LIMIT_REACHED', message: 'limit' },
+      }),
+    });
+
+    const card = await screen.findByRole('article', { name: 'Bloodborne' });
+    await userEvent.click(
+      within(card).getByRole('button', { name: 'Marcar Bloodborne como favorito' }),
+    );
+    expect(
+      await screen.findByText('Ya tenés 5 favoritos. Quitá uno para sumar otro.'),
+    ).toBeInTheDocument();
   });
 
   it('sends filters to the API and keeps them in the URL', async () => {

@@ -23,12 +23,13 @@ import {
   hasActiveFilters,
   paramsFromFilters,
 } from '../features/library/libraryFilters';
+import { SteamPanel } from '../features/steam/SteamPanel';
 import { LibraryFiltersPanel } from '../features/library/LibraryFiltersPanel';
 import { LibrarySearch } from '../features/library/LibrarySearch';
 import { useLibrary } from '../features/library/queries';
 import type { LibraryFilters, UserGameListItem } from '../features/library/types';
 import { messages } from '../i18n/messages';
-import { ambientBackground, brandGradient, gradientTextSx, panelSx } from '../theme/brand';
+import { ambientBackground, brandGradient, gradientTextSx, ink, panelSx } from '../theme/brand';
 
 const t = messages.library;
 /** Poster grid: as many columns as fit, never narrower than this. */
@@ -76,7 +77,7 @@ function CoverFan({ items }: { items: UserGameListItem[] }) {
               aspectRatio: '3 / 4',
               objectFit: 'cover',
               borderRadius: 2,
-              border: `2px solid ${alpha(theme.palette.common.white, 0.1)}`,
+              border: `2px solid ${alpha(ink(theme), 0.1)}`,
               boxShadow: `0 18px 30px -12px rgba(0,0,0,0.8)`,
               transformOrigin: '50% 120%',
               transform: `translateX(-50%) translateX(${offset * 46}px) rotate(${offset * 8}deg) translateY(${Math.abs(offset) * 8}px)`,
@@ -236,7 +237,7 @@ export function LibraryPage() {
           position: 'relative',
           overflow: 'hidden',
           borderRadius: { xs: 3, md: 4 },
-          border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+          border: `1px solid ${alpha(ink(theme), 0.08)}`,
           background: ambientBackground(theme),
           px: { xs: 2.5, sm: 4, md: 5 },
           pt: { xs: 3, md: 4 },
@@ -293,6 +294,8 @@ export function LibraryPage() {
           <CoverFan items={all.data ?? []} />
         </Stack>
       </Box>
+
+      <SteamPanel />
 
       {/* Search: wide and centered, the main way into the library. */}
       <Stack direction="row" spacing={1.5} sx={{ width: '100%', alignItems: 'center' }}>

@@ -1,14 +1,19 @@
 import FlagIcon from '@mui/icons-material/Flag';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { durationFromMinutes } from '../../../components/duration';
+import { DurationFields } from '../../../components/DurationFields';
 import { FormDialog } from '../../../components/FormDialog';
 import { NoteField } from '../../../components/NoteField';
 import { messages } from '../../../i18n/messages';
 import { getApiErrorMessage } from '../../../lib/api/errors';
 import { todayLocal } from '../../../lib/dates';
+import { formatMinutes } from '../../../lib/format';
 import type { PlayStatus, Playthrough, UserGameDetails } from '../../library/types';
 import {
   noteError,
+  parseDuration,
   PLAYTHROUGH_NAME_MAX_LENGTH,
   validatePlaythroughDates,
 } from '../../library/validation';
@@ -16,7 +21,7 @@ import { detailApi, type PlaythroughChanges } from '../api';
 import { useGameMutation } from '../mutations';
 
 const t = messages.detail.playthroughs;
-const STATUSES: PlayStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED'];
+const STATUSES: PlayStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'PLAYED'];
 
 interface PlaythroughDialogProps {
   userGame: UserGameDetails;
@@ -38,6 +43,10 @@ export function PlaythroughDialog({
   const [startDate, setStartDate] = useState(playthrough?.startDate ?? '');
   const [completionDate, setCompletionDate] = useState(playthrough?.completionDate ?? '');
   const [notes, setNotes] = useState(playthrough?.notes ?? '');
+  // Empty when there is none, so the fields show their labels instead of zeros.
+  const [previous, setPrevious] = useState(
+    durationFromMinutes(playthrough?.previousMinutes ? playthrough.previousMinutes : null),
+  );
   const [showErrors, setShowErrors] = useState(false);
 
   const mutation = useGameMutation(userGame.id, (changes: PlaythroughChanges) =>
@@ -50,9 +59,14 @@ export function PlaythroughDialog({
   const errors = validatePlaythroughDates(status, startDate, completed ? completionDate : '');
   const difficulties = userGame.difficulties.filter((d) => d.kind === 'PLAYTHROUGH');
 
+  // On Steam games the time is adjusted from the playthrough card (decision #78):
+  // the previous time there may be negative, which these fields can't show.
+  const steamTime = (playthrough?.steamMinutes ?? 0) > 0;
+  const previousMinutes = steamTime ? 0 : parseDuration(previous.hours, previous.minutes);
+
   const submit = () => {
     setShowErrors(true);
-    if (Object.keys(errors).length > 0 || noteError(notes)) {
+    if (Object.keys(errors).length > 0 || noteError(notes) || previousMinutes === null) {
       return;
     }
     mutation.mutate(
@@ -61,9 +75,10 @@ export function PlaythroughDialog({
         status,
         difficultyId: difficultyId || null,
         startDate: startDate || null,
-        // Only completed playthroughs have a completion date (decision #34).
-        completionDate: completed ? completionDate : null,
+        // Only completed playthroughs have a completion date, and it's optional (#34, #70).
+        completionDate: completed && completionDate ? completionDate : null,
         notes: notes.trim() ? notes : null,
+        ...(steamTime ? {} : { previousMinutes: previousMinutes ?? 0 }),
       },
       { onSuccess: onSaved },
     );
@@ -128,13 +143,27 @@ export function PlaythroughDialog({
         value={completed ? completionDate : ''}
         onChange={(e) => setCompletionDate(e.target.value)}
         disabled={!completed}
-        required={completed}
         error={showErrors && Boolean(errors.completionDate)}
         helperText={
           (showErrors && errors.completionDate) || (!completed ? t.completionHint : undefined)
         }
         slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayLocal() } }}
       />
+      {steamTime ? (
+        <Typography variant="body2" color="text.secondary">
+          {t.steamTimeNote(formatMinutes(playthrough!.steamMinutes))}
+        </Typography>
+      ) : (
+        <DurationFields
+          label={t.previousTime}
+          value={previous}
+          onChange={setPrevious}
+          error={
+            showErrors && previousMinutes === null ? messages.validation.minutesInvalid : undefined
+          }
+          helperText={t.previousTimeHelp}
+        />
+      )}
       <NoteField label={t.notes} value={notes} onChange={setNotes} />
     </FormDialog>
   );
