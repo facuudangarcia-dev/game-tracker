@@ -1,14 +1,17 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { ASSET_STORAGE, type AssetStorage } from '../assets/asset-storage';
 import { EmailDeliveryError } from '../email/email.service';
-import type { User } from '../users/user.entity';
+import { User } from '../users/user.entity';
 import {
   EmailAlreadyRegisteredError,
   UsernameTakenError,
@@ -29,16 +32,20 @@ export interface Registration {
   username: string;
   email: string;
   password: string;
+  country: string;
 }
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly users: UsersService,
     private readonly passwords: PasswordHasher,
     private readonly sessions: SessionsService,
     private readonly verification: EmailVerificationService,
+    @Inject(ASSET_STORAGE) private readonly storage: AssetStorage,
   ) {}
 
   /**
@@ -55,6 +62,7 @@ export class AuthService {
           {
             email: input.email,
             username: input.username,
+            country: input.country,
             passwordHash,
             termsVersion: TERMS_VERSION,
             privacyVersion: PRIVACY_VERSION,
@@ -70,8 +78,9 @@ export class AuthService {
     }
   }
 
-  async login(email: string, password: string): Promise<AuthResult> {
-    const user = await this.users.findByEmail(email);
+  /** Logs in with the username, in any case (decision #76). */
+  async login(username: string, password: string): Promise<AuthResult> {
+    const user = await this.users.findByUsername(username);
     if (!user) {
       await this.passwords.verifyAgainstDummy(password);
       throw invalidCredentials();
@@ -84,12 +93,75 @@ export class AuthService {
       await this.users.updatePasswordHash(user.id, await this.passwords.hash(password));
     }
 
-    // Checked only after the password, so it doesn't reveal which emails exist.
+    // Checked only after the password, so it doesn't reveal which accounts exist.
     if (!user.emailVerified) {
-      throw emailNotVerified();
+      throw emailNotVerified(user.email);
     }
 
     return { user, session: await this.sessions.create(user.id) };
+  }
+
+  /** Records the acceptance of the current legal documents (decision #88). */
+  async acceptLegal(user: User, now = new Date()): Promise<User> {
+    await this.dataSource.getRepository(User).update(
+      { id: user.id },
+      {
+        termsVersion: TERMS_VERSION,
+        termsAcceptedAt: now,
+        privacyVersion: PRIVACY_VERSION,
+        privacyAcceptedAt: now,
+      },
+    );
+    return {
+      ...user,
+      termsVersion: TERMS_VERSION,
+      termsAcceptedAt: now,
+      privacyVersion: PRIVACY_VERSION,
+      privacyAcceptedAt: now,
+    };
+  }
+
+  /**
+   * Deletes the account and everything in it (decision #82), after confirming
+   * the password: library, playthroughs, wishlist, Steam link, sessions, the
+   * user's manual games and their uploaded images (avatar and covers nobody
+   * else uses). Irreversible.
+   */
+  async deleteAccount(user: User, password: string): Promise<void> {
+    if (!(await this.passwords.verify(user.passwordHash, password))) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: AuthErrorCode.WrongPassword,
+        message: 'Wrong password',
+      });
+    }
+    const covers: { key: string }[] = await this.dataSource.query(
+      `SELECT DISTINCT cover_asset_key AS key FROM games
+       WHERE created_by_user_id = $1 AND cover_asset_key IS NOT NULL`,
+      [user.id],
+    );
+    const keys = [
+      ...new Set([
+        ...covers.map((c) => c.key),
+        ...(user.avatarAssetKey ? [user.avatarAssetKey] : []),
+      ]),
+    ];
+    // Every user row (sessions, library, wishlist, Steam, manual games...) cascades.
+    await this.dataSource.query('DELETE FROM users WHERE id = $1', [user.id]);
+
+    // Images are stored by content: only delete the ones nobody else uses.
+    for (const key of keys) {
+      const [{ used }]: { used: boolean }[] = await this.dataSource.query(
+        `SELECT EXISTS (SELECT 1 FROM games WHERE cover_asset_key = $1)
+             OR EXISTS (SELECT 1 FROM users WHERE avatar_asset_key = $1) AS used`,
+        [key],
+      );
+      if (!used) {
+        await this.storage.delete(key).catch(() => {
+          this.logger.warn('An image of a deleted account could not be deleted');
+        });
+      }
+    }
   }
 
   async verifyEmail(email: string, code: string): Promise<void> {

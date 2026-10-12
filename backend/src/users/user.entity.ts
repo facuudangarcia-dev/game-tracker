@@ -8,13 +8,26 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+/** Who sees the user's profile and activity (decision #84). */
+export enum ProfileVisibility {
+  /** Accepted friends. */
+  Friends = 'FRIENDS',
+  /** Nobody else. */
+  Private = 'PRIVATE',
+}
+
 @Entity({ name: 'users' })
-// Emails and usernames are normalized to lowercase by the app; the DB enforces it
-// so the unique indexes are effectively case-insensitive.
+// Emails are normalized to lowercase by the app; the DB enforces it so the
+// unique index is effectively case-insensitive.
 @Check('CHK_users_email_lowercase', `"email" = lower("email")`)
-@Check('CHK_users_username_format', `"username" ~ '^[a-z0-9_]{3,30}$'`)
+// Usernames keep their case (decision #76) but are unique ignoring it: the
+// expression index UQ_users_username_lower (lower("username")) is created by the
+// migration; TypeORM can't declare it, so it's excluded from synchronization.
+@Check('CHK_users_username_format', `"username" ~ '^[A-Za-z0-9_]{3,30}$'`)
+@Index('UQ_users_username_lower', { synchronize: false })
 // At most one avatar: a built-in preset or an uploaded image.
 @Check('CHK_users_single_avatar', `"avatar_preset" IS NULL OR "avatar_asset_key" IS NULL`)
+@Check('CHK_users_country_format', `"country" ~ '^[A-Z]{2}$'`)
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -23,7 +36,6 @@ export class User {
   @Column({ type: 'varchar', length: 254 })
   email: string;
 
-  @Index('UQ_users_username', { unique: true })
   @Column({ type: 'varchar', length: 30 })
   username: string;
 
@@ -68,6 +80,19 @@ export class User {
   /** Uploaded avatar in the asset storage ("avatars/<sha256>.<ext>"); private. */
   @Column({ name: 'avatar_asset_key', type: 'varchar', length: 200, nullable: true })
   avatarAssetKey: string | null;
+
+  /** Country whose prices the user sees (ISO 3166-1 alpha-2, decision #68); null = not chosen. */
+  @Column({ type: 'char', length: 2, nullable: true })
+  country: string | null;
+
+  @Column({
+    name: 'profile_visibility',
+    type: 'enum',
+    enum: ProfileVisibility,
+    enumName: 'profile_visibility',
+    default: ProfileVisibility.Friends,
+  })
+  profileVisibility: ProfileVisibility;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

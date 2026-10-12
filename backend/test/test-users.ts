@@ -26,6 +26,7 @@ export function registrationBody(email: string, overrides: object = {}) {
     password: TEST_PASSWORD,
     acceptTerms: true,
     acceptPrivacy: true,
+    country: 'AR',
     ...overrides,
   };
 }
@@ -45,7 +46,7 @@ export async function registerUser(app: INestApplication<App>, email: string): P
     .expect(204);
   const response = await request(server)
     .post('/api/auth/login')
-    .send({ email, password: TEST_PASSWORD })
+    .send({ username: usernameFor(email), password: TEST_PASSWORD })
     .expect(200);
 
   const cookie = (response.headers['set-cookie'] as unknown as string[])[0].split(';')[0];

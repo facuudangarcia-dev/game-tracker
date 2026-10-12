@@ -22,13 +22,16 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Usernames keep their case (decision #76); only surrounding spaces are removed. */
 export function normalizeUsername(username: string): string {
-  return username.trim().toLowerCase();
+  return username.trim();
 }
 
 export interface NewUser {
   email: string;
   username: string;
+  /** Country of prices and deals (decision #75). */
+  country: string;
   passwordHash: string;
   termsVersion: string;
   privacyVersion: string;
@@ -48,6 +51,14 @@ export class UsersService {
     return this.users.findOneBy({ email: normalizeEmail(email) });
   }
 
+  /** Usernames are unique ignoring case: any case finds the account. */
+  findByUsername(username: string): Promise<User | null> {
+    return this.users
+      .createQueryBuilder('user')
+      .where('lower(user.username) = lower(:username)', { username: normalizeUsername(username) })
+      .getOne();
+  }
+
   /**
    * Creates an unverified user. The unique indexes are the source of truth for
    * duplicates (no race window).
@@ -59,6 +70,7 @@ export class UsersService {
         repository.create({
           email: normalizeEmail(input.email),
           username: normalizeUsername(input.username),
+          country: input.country,
           passwordHash: input.passwordHash,
           emailVerified: false,
           termsAcceptedAt: input.acceptedAt,
@@ -69,7 +81,7 @@ export class UsersService {
       );
     } catch (error) {
       const constraint = violatedUniqueConstraint(error);
-      if (constraint === 'UQ_users_username') {
+      if (constraint === 'UQ_users_username_lower') {
         throw new UsernameTakenError();
       }
       if (constraint) {

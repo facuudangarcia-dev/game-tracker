@@ -8,6 +8,12 @@ export interface User {
   email: string;
   emailVerified: boolean;
   avatar: Avatar;
+  /** Country of prices chosen in the profile (decision #68); null = not chosen. */
+  country: string | null;
+  /** Who sees the profile and activity (decision #84). */
+  profileVisibility: 'FRIENDS' | 'PRIVATE';
+  /** The Terms or the Privacy policy changed since they were accepted (decision #88). */
+  legalAcceptanceRequired: boolean;
   createdAt: string;
 }
 
@@ -16,11 +22,19 @@ export interface Credentials {
   password: string;
 }
 
+/** Login with the username, in any case (decision #76). */
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
 export interface Registration extends Credentials {
   username: string;
   /** One checkbox accepts both documents; the backend stores each acceptance. */
   acceptTerms: boolean;
   acceptPrivacy: boolean;
+  /** Country of prices and deals (ISO 3166-1 alpha-2). */
+  country: string;
 }
 
 export interface EmailVerification {
@@ -37,6 +51,15 @@ export function isEmailNotVerified(error: unknown): boolean {
   );
 }
 
+/** Email of an unverified account, given by the login after the right password. */
+export function unverifiedEmail(error: unknown): string | null {
+  if (!isEmailNotVerified(error)) {
+    return null;
+  }
+  const email = ((error as ApiError).body as { email?: unknown } | null)?.email;
+  return typeof email === 'string' ? email : null;
+}
+
 /** Current user, or null when there is no valid (verified) session. */
 export async function fetchCurrentUser(): Promise<User | null> {
   try {
@@ -49,7 +72,7 @@ export async function fetchCurrentUser(): Promise<User | null> {
   }
 }
 
-export function login(credentials: Credentials): Promise<User> {
+export function login(credentials: LoginCredentials): Promise<User> {
   return apiFetch<User>('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
 }
 
@@ -69,6 +92,14 @@ export async function resendVerification(email: string): Promise<void> {
   await apiFetch<unknown>('/auth/resend-verification', {
     method: 'POST',
     body: JSON.stringify({ email }),
+  });
+}
+
+/** Deletes the account and all its data; also ends the session. */
+export async function deleteAccount(password: string): Promise<void> {
+  await apiFetch<unknown>('/auth/delete-account', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
   });
 }
 

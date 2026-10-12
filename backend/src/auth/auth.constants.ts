@@ -7,7 +7,7 @@ export const EMAIL_MAX_LENGTH = 254;
 /** Usernames are stored lowercase, so uniqueness is case-insensitive. */
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 30;
-export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
+export const USERNAME_PATTERN = /^[A-Za-z0-9_]+$/;
 
 /** Sliding sessions are renewed at most once per this interval (docs/decisions.md #20). */
 export const SESSION_RENEW_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -20,8 +20,8 @@ export const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
 export const VERIFICATION_MAX_ATTEMPTS = 5;
 
 /** Versions of the legal documents accepted at registration (stored as evidence). */
-export const TERMS_VERSION = '2026-10-06';
-export const PRIVACY_VERSION = '2026-10-06';
+export const TERMS_VERSION = '2026-10-11';
+export const PRIVACY_VERSION = '2026-10-11';
 
 /** Machine-readable error codes; the frontend maps them to user-facing texts. */
 export enum AuthErrorCode {
@@ -32,4 +32,8 @@ export enum AuthErrorCode {
   EmailNotVerified = 'EMAIL_NOT_VERIFIED',
   InvalidVerificationCode = 'INVALID_VERIFICATION_CODE',
   EmailDeliveryFailed = 'EMAIL_DELIVERY_FAILED',
+  /** Deleting the account: the password confirmation didn't match. */
+  WrongPassword = 'WRONG_PASSWORD',
+  /** New versions of the legal documents must be accepted first (decision #88). */
+  LegalAcceptanceRequired = 'LEGAL_ACCEPTANCE_REQUIRED',
 }

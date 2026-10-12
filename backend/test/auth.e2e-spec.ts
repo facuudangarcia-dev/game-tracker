@@ -8,7 +8,8 @@ import { registrationBody, TEST_PASSWORD } from './test-users';
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'gt_session';
 const EMAIL = 'player@example.com';
-const credentials = { email: EMAIL, password: TEST_PASSWORD };
+// registrationBody(EMAIL) uses "player" as username.
+const credentials = { username: 'player', password: TEST_PASSWORD };
 
 function getSessionCookie(response: request.Response): string {
   const raw = response.headers['set-cookie'] as unknown as string[] | undefined;
@@ -83,12 +84,16 @@ describe('Auth (e2e)', () => {
         email: '  Player@Example.COM ',
       }).expect(201);
 
+      // The username keeps its case; the email is lowercased.
       expect(response.body).toEqual({
         id: expect.any(String),
-        username: 'player_one',
+        username: 'Player_One',
         email: EMAIL,
         emailVerified: false,
         avatar: null,
+        country: 'AR',
+        profileVisibility: 'FRIENDS',
+        legalAcceptanceRequired: false,
         createdAt: expect.any(String),
       });
       expect(response.headers['set-cookie']).toBeUndefined();
@@ -122,8 +127,8 @@ describe('Auth (e2e)', () => {
       expect(row.password_hash).not.toContain(TEST_PASSWORD);
       expect(row.terms_accepted_at).toBeInstanceOf(Date);
       expect(row.privacy_accepted_at).toBeInstanceOf(Date);
-      expect(row.terms_version).toBe('2026-10-06');
-      expect(row.privacy_version).toBe('2026-10-06');
+      expect(row.terms_version).toBe('2026-10-11');
+      expect(row.privacy_version).toBe('2026-10-11');
     });
 
     it('rejects an email that is already registered, ignoring case', async () => {
@@ -171,6 +176,9 @@ describe('Auth (e2e)', () => {
       ['a password shorter than 8', { password: 'short' }],
       ['a password longer than 128', { password: 'x'.repeat(129) }],
       ['unknown fields', { isAdmin: true }],
+      ['a missing country', { country: undefined }],
+      ['an unknown country', { country: 'XX' }],
+      ['a country name instead of its code', { country: 'Argentina' }],
     ])('rejects %s with 400 and creates nothing', async (_case, overrides) => {
       await register(overrides).expect(400);
 
@@ -324,7 +332,8 @@ describe('Auth (e2e)', () => {
 
       const response = await login().expect(403);
 
-      expect(response.body).toMatchObject({ code: 'EMAIL_NOT_VERIFIED' });
+      // After the right password, the email is given so the user can verify it.
+      expect(response.body).toMatchObject({ code: 'EMAIL_NOT_VERIFIED', email: EMAIL });
       expect(response.headers['set-cookie']).toBeUndefined();
       expect(await sessionCount()).toBe(0);
     });
@@ -334,17 +343,18 @@ describe('Auth (e2e)', () => {
 
       const response = await login({ ...credentials, password: 'wrong-password' }).expect(401);
       expect(response.body).toMatchObject({ code: 'INVALID_CREDENTIALS' });
+      expect(response.body).not.toHaveProperty('email');
     });
 
-    it('logs in a verified user (email is case-insensitive)', async () => {
-      await register().expect(201);
+    it('logs in a verified user with the username in any case', async () => {
+      await register({ username: 'Garchi' }).expect(201);
       await verify(emails.lastCode(EMAIL)).expect(204);
 
-      const response = await login({ ...credentials, email: 'PLAYER@example.com' }).expect(200);
+      const response = await login({ ...credentials, username: ' gARCHI ' }).expect(200);
 
       expect(response.body).toMatchObject({
         email: EMAIL,
-        username: 'player',
+        username: 'Garchi',
         emailVerified: true,
       });
       const cookie = getSessionCookie(response);
@@ -355,13 +365,19 @@ describe('Auth (e2e)', () => {
       await me(cookie).expect(200);
     });
 
-    it('returns the same 401 for a wrong password and an unknown email', async () => {
+    it('does not log in with the email anymore', async () => {
+      await verifiedLogin();
+      await login({ email: EMAIL, password: TEST_PASSWORD }).expect(400);
+      await login({ username: EMAIL, password: TEST_PASSWORD }).expect(401);
+    });
+
+    it('returns the same 401 for a wrong password and an unknown username', async () => {
       await verifiedLogin();
 
       const wrongPassword = await login({ ...credentials, password: 'wrong-password' }).expect(401);
-      const unknownEmail = await login({ ...credentials, email: 'nobody@example.com' }).expect(401);
+      const unknownUser = await login({ ...credentials, username: 'nobody' }).expect(401);
 
-      expect(wrongPassword.body).toEqual(unknownEmail.body);
+      expect(wrongPassword.body).toEqual(unknownUser.body);
       expect(wrongPassword.body).toMatchObject({ code: 'INVALID_CREDENTIALS' });
       expect(wrongPassword.headers['set-cookie']).toBeUndefined();
     });
@@ -377,6 +393,9 @@ describe('Auth (e2e)', () => {
         email: EMAIL,
         emailVerified: true,
         avatar: null,
+        country: 'AR',
+        profileVisibility: 'FRIENDS',
+        legalAcceptanceRequired: false,
         createdAt: expect.any(String),
       });
     });

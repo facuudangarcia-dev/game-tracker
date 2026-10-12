@@ -9,7 +9,11 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { type FormEvent, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
+import { useLocale } from '../../i18n/locale';
 import { messages } from '../../i18n/messages';
+import { primaryActionSx } from '../../theme/brand';
+import { countryOptions } from '../explore/countries';
+import { usePriceCountry } from '../explore/priceCountry';
 import { AuthCard } from './AuthCard';
 import { type AuthLocationState, verifyEmailPath } from './authLocation';
 import { getAuthErrorMessage } from './errorMessages';
@@ -43,16 +47,28 @@ export function RegisterForm() {
   const navigate = useNavigate();
   const state = (location.state as AuthLocationState | null) ?? {};
   const register = useRegister();
+  // Re-renders when the language changes: country names are in that language.
+  useLocale();
+  // The country chosen in this browser or the browser's region; none when unknown
+  // (the app is global: nothing is assumed, decision #75).
+  const detectedCountry = usePriceCountry();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [country, setCountry] = useState(detectedCountry ?? '');
   const [acceptLegal, setAcceptLegal] = useState(false);
   const [errors, setErrors] = useState<RegistrationErrors>({});
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const values = { username: username.trim(), email: email.trim(), password, acceptLegal };
+    const values = {
+      username: username.trim(),
+      email: email.trim(),
+      password,
+      country,
+      acceptLegal,
+    };
     const validationErrors = validateRegistration(values);
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
@@ -65,6 +81,7 @@ export function RegisterForm() {
         password,
         acceptTerms: true,
         acceptPrivacy: true,
+        country,
       },
       {
         onSuccess: (user) =>
@@ -76,7 +93,7 @@ export function RegisterForm() {
   };
 
   return (
-    <AuthCard title={t.register.title} onSubmit={handleSubmit}>
+    <AuthCard title={t.register.title} subtitle={t.register.subtitle} onSubmit={handleSubmit}>
       {register.isError ? (
         <Alert severity="error" variant="outlined">
           {getAuthErrorMessage(register.error)}
@@ -118,6 +135,27 @@ export function RegisterForm() {
         error={Boolean(errors.password)}
         helperText={errors.password ?? t.validation.passwordHint(PASSWORD_MIN_LENGTH)}
       />
+      <TextField
+        select
+        label={t.country}
+        required
+        fullWidth
+        autoComplete="country"
+        value={country}
+        onChange={(e) => setCountry(e.target.value)}
+        error={Boolean(errors.country)}
+        helperText={errors.country ?? t.countryHint}
+        slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+      >
+        <option value="" disabled>
+          {t.chooseCountry}
+        </option>
+        {countryOptions().map(([code, name]) => (
+          <option key={code} value={code}>
+            {name}
+          </option>
+        ))}
+      </TextField>
 
       <FormControl error={Boolean(errors.acceptLegal)}>
         <FormControlLabel
@@ -142,7 +180,13 @@ export function RegisterForm() {
         {errors.acceptLegal ? <FormHelperText>{errors.acceptLegal}</FormHelperText> : null}
       </FormControl>
 
-      <Button type="submit" variant="contained" size="large" loading={register.isPending}>
+      <Button
+        type="submit"
+        variant="contained"
+        size="large"
+        loading={register.isPending}
+        sx={(theme) => primaryActionSx(theme)}
+      >
         {t.register.submit}
       </Button>
 

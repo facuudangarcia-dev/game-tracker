@@ -2,13 +2,13 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api/client';
-import { healthOk, mockApi, testUser, unauthenticated } from '../../test/mockApi';
+import { mockApi, testUser, unauthenticated } from '../../test/mockApi';
 import { renderRoute } from '../../test/renderRoute';
 
 const password = 'super-secret-1';
 
-async function fillCredentials(email: string, pass: string) {
-  await userEvent.type(screen.getByLabelText(/email/i), email);
+async function fillCredentials(username: string, pass: string) {
+  await userEvent.type(screen.getByLabelText(/^username/i), username);
   await userEvent.type(screen.getByLabelText(/^contraseña/i), pass);
 }
 
@@ -21,7 +21,6 @@ describe('authentication flow', () => {
     it('sends logged-out users to /login and back to the original page after login', async () => {
       let loggedIn = false;
       const { calls } = mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': () => (loggedIn ? { status: 200, body: testUser } : unauthenticated()),
         'POST /auth/login': () => {
           loggedIn = true;
@@ -33,19 +32,21 @@ describe('authentication flow', () => {
       expect(await screen.findByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe('/login');
 
-      await fillCredentials('Player@Example.com ', password);
+      await fillCredentials(' Garchi ', password);
       await userEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
 
       await waitFor(() => expect(router.state.location.pathname).toBe('/games'));
       expect(router.state.location.search).toBe('?tab=1');
+      // The username, as written (the backend ignores its case).
       expect(calls.find((c) => c.path === '/auth/login')?.body).toEqual({
-        email: 'Player@Example.com',
+        username: 'Garchi',
         password,
       });
+      expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
     });
 
     it('redirects logged-in users away from /login', async () => {
-      mockApi({ 'GET /health': healthOk, 'GET /auth/me': () => ({ status: 200, body: testUser }) });
+      mockApi({ 'GET /auth/me': () => ({ status: 200, body: testUser }) });
       const { router } = renderRoute('/login');
 
       await waitFor(() => expect(router.state.location.pathname).toBe('/'));
@@ -54,34 +55,33 @@ describe('authentication flow', () => {
 
   describe('login', () => {
     it('validates fields before calling the API', async () => {
-      const { calls } = mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      const { calls } = mockApi({ 'GET /auth/me': unauthenticated });
       renderRoute('/login');
 
       await userEvent.click(await screen.findByRole('button', { name: 'Ingresar' }));
 
-      expect(screen.getByText('Ingresá tu email.')).toBeInTheDocument();
+      expect(screen.getByText('Ingresá un username.')).toBeInTheDocument();
       expect(screen.getByText('Ingresá tu contraseña.')).toBeInTheDocument();
       expect(calls.some((c) => c.path === '/auth/login')).toBe(false);
     });
 
     it('shows a generic message for invalid credentials', async () => {
       mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': unauthenticated,
         'POST /auth/login': () => ({ status: 401, body: { code: 'INVALID_CREDENTIALS' } }),
       });
       const { router } = renderRoute('/login');
 
       await screen.findByRole('heading', { name: 'Iniciar sesión' });
-      await fillCredentials('player@example.com', 'wrong-password');
+      await fillCredentials('player_one', 'wrong-password');
       await userEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
 
-      expect(await screen.findByText('Email o contraseña incorrectos.')).toBeInTheDocument();
+      expect(await screen.findByText('Username o contraseña incorrectos.')).toBeInTheDocument();
       expect(router.state.location.pathname).toBe('/login');
     });
 
     it('can reveal the password', async () => {
-      mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      mockApi({ 'GET /auth/me': unauthenticated });
       renderRoute('/login');
 
       const input = await screen.findByLabelText(/^contraseña/i);
@@ -95,14 +95,16 @@ describe('authentication flow', () => {
   describe('login of an unverified account', () => {
     it('explains it and leads to the verification screen without a session', async () => {
       mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': unauthenticated,
-        'POST /auth/login': () => ({ status: 403, body: { code: 'EMAIL_NOT_VERIFIED' } }),
+        'POST /auth/login': () => ({
+          status: 403,
+          body: { code: 'EMAIL_NOT_VERIFIED', email: 'new@example.com' },
+        }),
       });
       const { router } = renderRoute('/login');
 
       await screen.findByRole('heading', { name: 'Iniciar sesión' });
-      await fillCredentials('new@example.com', password);
+      await fillCredentials('new_player', password);
       await userEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
 
       expect(
@@ -133,7 +135,7 @@ describe('authentication flow', () => {
     }
 
     it('shows username, email, password and one checkbox with both legal links', async () => {
-      mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      mockApi({ 'GET /auth/me': unauthenticated });
       renderRoute('/register');
 
       await screen.findByRole('heading', { name: 'Crear cuenta' });
@@ -152,7 +154,7 @@ describe('authentication flow', () => {
     });
 
     it('requires a valid username and the acceptance before calling the API', async () => {
-      const { calls } = mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      const { calls } = mockApi({ 'GET /auth/me': unauthenticated });
       renderRoute('/register');
 
       await fillRegistration({ username: 'ab', accept: false });
@@ -160,13 +162,49 @@ describe('authentication flow', () => {
 
       expect(screen.getByText('Entre 3 y 30 caracteres.')).toBeInTheDocument();
       expect(
-        screen.getByText('Tenés que aceptar los Términos de uso y la Política de privacidad.'),
+        screen.getByText(
+          'Tenés que tener 13 años o más y aceptar los Términos de uso y la Política de privacidad.',
+        ),
       ).toBeInTheDocument();
       expect(calls.some((c) => c.path === '/auth/register')).toBe(false);
     });
 
+    it('asks for a country when the browser does not tell one, assuming none', async () => {
+      Object.defineProperty(navigator, 'languages', { value: ['es', 'en'], configurable: true });
+      try {
+        const { calls } = mockApi({
+          'GET /auth/me': unauthenticated,
+          'POST /auth/register': () => ({
+            status: 201,
+            body: { ...testUser, emailVerified: false },
+          }),
+        });
+        renderRoute('/register');
+
+        await fillRegistration();
+        const country = screen.getByLabelText(/^País/);
+        expect(country).toHaveValue('');
+        await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+        expect(screen.getByText('Elegí tu país.')).toBeInTheDocument();
+        expect(calls.some((c) => c.path === '/auth/register')).toBe(false);
+
+        await userEvent.selectOptions(country, 'México');
+        await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+        await waitFor(() =>
+          expect(calls.find((c) => c.path === '/auth/register')?.body).toMatchObject({
+            country: 'MX',
+          }),
+        );
+      } finally {
+        Object.defineProperty(navigator, 'languages', {
+          value: ['es-AR', 'es'],
+          configurable: true,
+        });
+      }
+    });
+
     it('rejects usernames with invalid characters', async () => {
-      const { calls } = mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      const { calls } = mockApi({ 'GET /auth/me': unauthenticated });
       renderRoute('/register');
 
       await fillRegistration({ username: 'player-one' });
@@ -177,7 +215,7 @@ describe('authentication flow', () => {
     });
 
     it('enforces the minimum password length', async () => {
-      const { calls } = mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      const { calls } = mockApi({ 'GET /auth/me': unauthenticated });
       renderRoute('/register');
 
       await fillRegistration({ pass: 'short' });
@@ -194,7 +232,6 @@ describe('authentication flow', () => {
       ['USERNAME_TAKEN', 'Ese username ya está en uso.'],
     ])('explains a %s conflict', async (code, text) => {
       mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': unauthenticated,
         'POST /auth/register': () => ({ status: 409, body: { code } }),
       });
@@ -208,7 +245,6 @@ describe('authentication flow', () => {
 
     it('creates the account without logging in and asks to verify the email', async () => {
       const { calls } = mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': unauthenticated,
         'POST /auth/register': () => ({
           status: 201,
@@ -227,6 +263,8 @@ describe('authentication flow', () => {
         password,
         acceptTerms: true,
         acceptPrivacy: true,
+        // Preselected from the browser's region (es-AR in the tests).
+        country: 'AR',
       });
       expect(await screen.findByRole('heading', { name: 'Verificá tu email' })).toBeInTheDocument();
       expect(screen.getByText('Te enviamos un código de 6 dígitos a:')).toBeInTheDocument();
@@ -243,7 +281,6 @@ describe('authentication flow', () => {
     it('verifies the code and returns to the login, without opening a session', async () => {
       let loggedIn = false;
       const { calls } = mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': () => (loggedIn ? { status: 200, body: testUser } : unauthenticated()),
         'POST /auth/verify-email': () => ({ status: 204 }),
         'POST /auth/login': () => {
@@ -265,15 +302,13 @@ describe('authentication flow', () => {
       expect(
         await screen.findByText('Email verificado. Ya podés iniciar sesión.'),
       ).toBeInTheDocument();
-      expect(screen.getByLabelText(/email/i)).toHaveValue('player@example.com');
-
-      await userEvent.type(screen.getByLabelText(/^contraseña/i), password);
+      await fillCredentials('player_one', password);
       await userEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
       await waitFor(() => expect(router.state.location.pathname).toBe('/'));
     });
 
     it('requires the 6 digits before calling the API', async () => {
-      const { calls } = mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      const { calls } = mockApi({ 'GET /auth/me': unauthenticated });
       renderRoute(verifyPath);
 
       await screen.findByRole('heading', { name: 'Verificá tu email' });
@@ -287,7 +322,6 @@ describe('authentication flow', () => {
 
     it('explains a wrong or expired code', async () => {
       mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': unauthenticated,
         'POST /auth/verify-email': () => ({
           status: 400,
@@ -308,7 +342,6 @@ describe('authentication flow', () => {
 
     it('resends the code and then waits for the cooldown', async () => {
       const { calls } = mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': unauthenticated,
         'POST /auth/resend-verification': () => ({ status: 202 }),
       });
@@ -329,7 +362,6 @@ describe('authentication flow', () => {
 
     it('asks for the email when it is not in the URL', async () => {
       const { calls } = mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': unauthenticated,
         'POST /auth/verify-email': () => ({ status: 204 }),
       });
@@ -354,11 +386,12 @@ describe('authentication flow', () => {
       ['/terms', 'Términos de uso'],
       ['/privacy', 'Política de privacidad'],
     ])('shows %s without a session', async (path, title) => {
-      mockApi({ 'GET /health': healthOk, 'GET /auth/me': unauthenticated });
+      mockApi({ 'GET /auth/me': unauthenticated });
       const { router } = renderRoute(path);
 
       expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
-      expect(screen.getByText(/Borrador/)).toBeInTheDocument();
+      expect(screen.getAllByText(/13 años/).length).toBeGreaterThan(0);
+      expect(screen.queryByText(/Borrador/)).not.toBeInTheDocument();
       expect(router.state.location.pathname).toBe(path);
     });
   });
@@ -366,7 +399,6 @@ describe('authentication flow', () => {
   describe('logout', () => {
     it('logs out from the user menu and returns to /login', async () => {
       const { calls } = mockApi({
-        'GET /health': healthOk,
         'GET /auth/me': () => ({ status: 200, body: testUser }),
         'POST /auth/logout': () => ({ status: 204 }),
       });
@@ -383,7 +415,7 @@ describe('authentication flow', () => {
   });
 
   it('treats EMAIL_NOT_VERIFIED from the API as an ended session', async () => {
-    mockApi({ 'GET /health': healthOk, 'GET /auth/me': () => ({ status: 200, body: testUser }) });
+    mockApi({ 'GET /auth/me': () => ({ status: 200, body: testUser }) });
     const { router, queryClient } = renderRoute('/games');
     await screen.findByRole('button', { name: 'Menú de usuario' });
 
@@ -399,7 +431,7 @@ describe('authentication flow', () => {
   });
 
   it('treats any 401 from the API as an ended session', async () => {
-    mockApi({ 'GET /health': healthOk, 'GET /auth/me': () => ({ status: 200, body: testUser }) });
+    mockApi({ 'GET /auth/me': () => ({ status: 200, body: testUser }) });
     const { router, queryClient } = renderRoute('/games');
     await screen.findByRole('button', { name: 'Menú de usuario' });
 

@@ -24,7 +24,12 @@ const user = {
   emailVerified: true,
 } as User;
 const session = { token: 'token', expiresAt: new Date() };
-const registration = { username: 'player', email: user.email, password: 'secret-password' };
+const registration = {
+  username: 'player',
+  email: user.email,
+  password: 'secret-password',
+  country: 'AR',
+};
 
 function createService() {
   const manager = { name: 'transaction-manager' };
@@ -34,6 +39,7 @@ function createService() {
   const users = {
     create: jest.fn(),
     findByEmail: jest.fn(),
+    findByUsername: jest.fn(),
     updatePasswordHash: jest.fn(),
   };
   const passwords = {
@@ -54,6 +60,7 @@ function createService() {
     passwords,
     sessions as unknown as SessionsService,
     verification as unknown as EmailVerificationService,
+    { put: jest.fn(), get: jest.fn(), delete: jest.fn() },
   );
   return { service, manager, users, passwords, sessions, verification };
 }
@@ -76,9 +83,10 @@ describe('AuthService', () => {
         {
           email: user.email,
           username: 'player',
+          country: 'AR',
           passwordHash: 'new-hash',
-          termsVersion: '2026-10-06',
-          privacyVersion: '2026-10-06',
+          termsVersion: '2026-10-11',
+          privacyVersion: '2026-10-11',
           acceptedAt: now,
         },
         manager,
@@ -118,10 +126,10 @@ describe('AuthService', () => {
   describe('login', () => {
     it('opens a session with valid credentials', async () => {
       const { service, users, passwords } = createService();
-      users.findByEmail.mockResolvedValue(user);
+      users.findByUsername.mockResolvedValue(user);
       passwords.verify.mockResolvedValue(true);
 
-      await expect(service.login(user.email, 'secret-password')).resolves.toEqual({
+      await expect(service.login(user.username, 'secret-password')).resolves.toEqual({
         user,
         session,
       });
@@ -130,10 +138,10 @@ describe('AuthService', () => {
 
     it('rejects a wrong password with INVALID_CREDENTIALS', async () => {
       const { service, users, passwords, sessions } = createService();
-      users.findByEmail.mockResolvedValue(user);
+      users.findByUsername.mockResolvedValue(user);
       passwords.verify.mockResolvedValue(false);
 
-      const error: unknown = await service.login(user.email, 'wrong').catch((e: unknown) => e);
+      const error: unknown = await service.login(user.username, 'wrong').catch((e: unknown) => e);
 
       expect(error).toBeInstanceOf(UnauthorizedException);
       expect((error as UnauthorizedException).getResponse()).toMatchObject({
@@ -142,13 +150,11 @@ describe('AuthService', () => {
       expect(sessions.create).not.toHaveBeenCalled();
     });
 
-    it('gives the same error for an unknown email and still spends hashing time', async () => {
+    it('gives the same error for an unknown username and still spends hashing time', async () => {
       const { service, users, passwords } = createService();
-      users.findByEmail.mockResolvedValue(null);
+      users.findByUsername.mockResolvedValue(null);
 
-      const error: unknown = await service
-        .login('nobody@example.com', 'whatever')
-        .catch((e: unknown) => e);
+      const error: unknown = await service.login('nobody', 'whatever').catch((e: unknown) => e);
 
       expect((error as UnauthorizedException).getResponse()).toMatchObject({
         code: 'INVALID_CREDENTIALS',
@@ -158,24 +164,25 @@ describe('AuthService', () => {
 
     it('refuses an unverified account (after checking the password) without a session', async () => {
       const { service, users, passwords, sessions } = createService();
-      users.findByEmail.mockResolvedValue({ ...user, emailVerified: false });
+      users.findByUsername.mockResolvedValue({ ...user, emailVerified: false });
       passwords.verify.mockResolvedValue(true);
 
-      const error = await errorOf(service.login(user.email, 'secret-password'));
+      const error = await errorOf(service.login(user.username, 'secret-password'));
 
       expect(error).toBeInstanceOf(ForbiddenException);
       expect((error as ForbiddenException).getResponse()).toMatchObject({
         code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
       });
       expect(sessions.create).not.toHaveBeenCalled();
     });
 
     it('reports a wrong password as INVALID_CREDENTIALS even for an unverified account', async () => {
       const { service, users, passwords } = createService();
-      users.findByEmail.mockResolvedValue({ ...user, emailVerified: false });
+      users.findByUsername.mockResolvedValue({ ...user, emailVerified: false });
       passwords.verify.mockResolvedValue(false);
 
-      const error = await errorOf(service.login(user.email, 'wrong'));
+      const error = await errorOf(service.login(user.username, 'wrong'));
 
       expect((error as UnauthorizedException).getResponse()).toMatchObject({
         code: 'INVALID_CREDENTIALS',
@@ -184,11 +191,11 @@ describe('AuthService', () => {
 
     it('upgrades the stored hash when its parameters are outdated', async () => {
       const { service, users, passwords } = createService();
-      users.findByEmail.mockResolvedValue(user);
+      users.findByUsername.mockResolvedValue(user);
       passwords.verify.mockResolvedValue(true);
       passwords.needsRehash.mockReturnValue(true);
 
-      await service.login(user.email, 'secret-password');
+      await service.login(user.username, 'secret-password');
 
       expect(users.updatePasswordHash).toHaveBeenCalledWith(user.id, 'new-hash');
     });

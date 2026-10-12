@@ -5,8 +5,14 @@ import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './authenticated-request';
 import type { SessionCookie } from './session-cookie.service';
 import type { SessionsService } from './sessions.service';
+import { PRIVACY_VERSION, TERMS_VERSION } from './auth.constants';
 
-const user = { id: 'user-1', emailVerified: true } as User;
+const user = {
+  id: 'user-1',
+  emailVerified: true,
+  termsVersion: TERMS_VERSION,
+  privacyVersion: PRIVACY_VERSION,
+} as User;
 
 function setup({ isPublic = false, token }: { isPublic?: boolean; token?: string }) {
   const reflector = { getAllAndOverride: jest.fn().mockReturnValue(isPublic) };

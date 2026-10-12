@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { messages } from '../../i18n/messages';
+import { primaryActionSx } from '../../theme/brand';
 import { AuthCard } from './AuthCard';
 import { type AuthLocationState } from './authLocation';
 import { getAuthErrorMessage } from './errorMessages';
@@ -66,7 +67,7 @@ export function VerifyEmailForm() {
         onSuccess: () =>
           void navigate('/login', {
             replace: true,
-            state: { from: state.from, verifiedEmail: email.trim() } satisfies AuthLocationState,
+            state: { from: state.from, verified: true } satisfies AuthLocationState,
           }),
       },
     );
@@ -152,7 +153,13 @@ export function VerifyEmailForm() {
         }}
       />
 
-      <Button type="submit" variant="contained" size="large" loading={verify.isPending}>
+      <Button
+        type="submit"
+        variant="contained"
+        size="large"
+        loading={verify.isPending}
+        sx={(theme) => primaryActionSx(theme)}
+      >
         {t.submit}
       </Button>
       <Button

@@ -49,9 +49,6 @@ describe('Security review (e2e)', () => {
       .body as UserGameDetailsDto;
     const second = withSecond.playthroughs[1];
     await asAlice
-      .put(`${base}/playthroughs/${second.id}/time-mode`, { mode: 'SESSIONS' })
-      .expect(200);
-    await asAlice
       .post(`${base}/playthroughs/${second.id}/sessions`, {
         playedAt: new Date(Date.now() - 3600_000).toISOString(),
         durationMinutes: 30,
@@ -80,8 +77,7 @@ describe('Security review (e2e)', () => {
       ['post', `${base}/playthroughs`, {}],
       ['patch', `${base}/playthroughs/${playthroughId}`, { name: 'x' }],
       ['delete', `${base}/playthroughs/${playthroughId}`],
-      ['put', `${base}/playthroughs/${game.playthroughs[0].id}/manual-time`, { minutes: 1 }],
-      ['put', `${base}/playthroughs/${playthroughId}/time-mode`, { mode: 'MANUAL' }],
+      ['patch', `${base}/playthroughs/${game.playthroughs[0].id}`, { previousMinutes: 1 }],
       [
         'post',
         `${base}/playthroughs/${playthroughId}/sessions`,
@@ -113,16 +109,17 @@ describe('Security review (e2e)', () => {
   it('requires a session on every non-public endpoint', async () => {
     const global: Route[] = [
       ['get', '/api/auth/me'],
-      ['get', '/api/platforms'],
-      ['get', '/api/genres'],
-      ['get', '/api/catalog/search?q=zelda'],
-      ['get', '/api/catalog/igdb/images/co1wyy'],
       ['get', '/api/library'],
       ['post', '/api/library', {}],
       ['get', '/api/profile/stats'],
       ['put', '/api/profile/avatar', { preset: 'knight' }],
       ['delete', '/api/profile/avatar'],
       ['get', '/api/profile/avatar/image'],
+      ['get', '/api/wishlist'],
+      ['post', '/api/wishlist', { provider: 'igdb', externalId: '1' }],
+      ['patch', '/api/wishlist/00000000-0000-4000-8000-000000000000', { targetPrice: null }],
+      ['delete', '/api/wishlist/00000000-0000-4000-8000-000000000000'],
+      ['get', '/api/wishlist/00000000-0000-4000-8000-000000000000/history'],
     ];
     for (const [method, url, body] of [...global, ...routes]) {
       const response = await send(method, url, body);
@@ -143,11 +140,7 @@ describe('Security review (e2e)', () => {
       .findOneByOrFail({ email: 'mallory@example.com' });
     const global: Route[] = [
       ['get', '/api/auth/me'],
-      ['get', '/api/platforms'],
-      ['get', '/api/genres'],
-      ['get', '/api/catalog/search?q=zelda'],
-      ['get', '/api/catalog/games/igdb/1942'],
-      ['get', '/api/catalog/igdb/images/co1wyy'],
+      ['get', '/api/wishlist'],
       ['get', '/api/library'],
       ['post', '/api/library', { manualGame: { name: 'x' }, platformId: game.platform.id }],
       ['get', '/api/profile/stats'],
@@ -179,6 +172,29 @@ describe('Security review (e2e)', () => {
     expect(count).toBe('0');
   });
 
+  it('serves the public catalog anonymously, even with an unverified or invalid session', async () => {
+    const server = app.getHttpServer();
+    await request(server)
+      .post('/api/auth/register')
+      .send(registrationBody('eve@example.com'))
+      .expect(201);
+    const eve = await dataSource.getRepository(User).findOneByOrFail({ email: 'eve@example.com' });
+    const { token } = await app.get(SessionsService).create(eve.id);
+
+    // Alice's manual game is never visible without her session.
+    for (const cookie of [undefined, `${COOKIE_NAME}=${token}`, `${COOKIE_NAME}=bogus`]) {
+      const response = await send('get', '/api/catalog/search?q=secret', undefined, cookie);
+      expect(response.status).toBe(200);
+      expect((response.body as { results: unknown[] }).results).toEqual([]);
+    }
+    // The unverified session is still revoked.
+    const [{ count }] = await dataSource.query<{ count: string }[]>(
+      'SELECT count(*) FROM sessions WHERE user_id = $1',
+      [eve.id],
+    );
+    expect(count).toBe('0');
+  });
+
   it('keeps the email verification flow public', async () => {
     await send('post', '/api/auth/verify-email', { email: 'a@example.com', code: '123456' }).expect(
       400,
@@ -190,6 +206,17 @@ describe('Security review (e2e)', () => {
     await send('get', '/api/health').expect(200);
     await send('post', '/api/auth/logout').expect(204);
     await send('get', '/api/assets/covers/missing.jpg').expect(404);
+    // Explore sections (decisions #64-#67): browsing needs no account.
+    await send('get', '/api/catalog/discover').expect(200);
+    await send('get', '/api/catalog/recommendations').expect(200);
+    await send('get', '/api/catalog/releases?from=2026-10-01&to=2026-10-31').expect(200);
+    await send('get', '/api/catalog/releases/undated').expect(200);
+    await send('get', '/api/deals').expect(200);
+    await send('get', '/api/deals/shops').expect(200);
+    await send('get', '/api/deals/recommended').expect(200);
+    await send('get', '/api/news').expect(200);
+    await send('get', '/api/platforms').expect(200);
+    await send('get', '/api/genres').expect(200);
     // Avatars are personal: never served by the public assets route.
     await send('get', `/api/assets/avatars/${'a'.repeat(64)}.png`).expect(404);
   });

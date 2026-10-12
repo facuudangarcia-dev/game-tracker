@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AssetsModule } from '../assets/assets.module';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -20,6 +21,7 @@ import { SessionsService } from './sessions.service';
     TypeOrmModule.forFeature([Session]),
     UsersModule,
     EmailModule,
+    AssetsModule,
     // Brute-force and spam protection for the public auth routes (per route and IP).
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],

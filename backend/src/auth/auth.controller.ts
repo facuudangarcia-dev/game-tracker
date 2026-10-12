@@ -15,7 +15,10 @@ import { toUserResponse, type UserResponseDto } from '../users/user-response.dto
 import type { User } from '../users/user.entity';
 import { AuthService } from './auth.service';
 import { CurrentUser, Public } from './decorators';
+import { LegalExempt } from './legal';
 import {
+  AcceptLegalDto,
+  DeleteAccountDto,
   LoginDto,
   RegisterDto,
   ResendVerificationDto,
@@ -51,7 +54,7 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<UserResponseDto> {
-    const { user, session } = await this.auth.login(dto.email, dto.password);
+    const { user, session } = await this.auth.login(dto.username, dto.password);
     this.cookie.set(response, session.token, session.expiresAt);
     return toUserResponse(user);
   }
@@ -89,8 +92,37 @@ export class AuthController {
     this.cookie.clear(response);
   }
 
+  @LegalExempt()
   @Get('me')
   me(@CurrentUser() user: User): UserResponseDto {
     return toUserResponse(user);
+  }
+
+  /** Accepts the current Terms and Privacy policy (decision #88). */
+  @LegalExempt()
+  @Post('accept-legal')
+  @HttpCode(HttpStatus.OK)
+  async acceptLegal(
+    @CurrentUser() user: User,
+    @Body() _dto: AcceptLegalDto,
+  ): Promise<UserResponseDto> {
+    return toUserResponse(await this.auth.acceptLegal(user));
+  }
+
+  /**
+   * Deletes the account and all its data (decision #82). Rate limited: it
+   * checks the password. POST because it carries the password in the body.
+   */
+  @LegalExempt()
+  @UseGuards(ThrottlerGuard)
+  @Post('delete-account')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteAccount(
+    @CurrentUser() user: User,
+    @Body() dto: DeleteAccountDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.auth.deleteAccount(user, dto.password);
+    this.cookie.clear(response);
   }
 }

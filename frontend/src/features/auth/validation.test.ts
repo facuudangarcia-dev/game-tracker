@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { validateCredentials, validateRegistration, validateVerificationCode } from './validation';
+import {
+  validateCredentials,
+  validateLogin,
+  validateRegistration,
+  validateVerificationCode,
+} from './validation';
+
+describe('validateLogin', () => {
+  it('only asks for both fields (any case, no format rules)', () => {
+    expect(validateLogin({ username: 'Garchi', password: 'x' })).toEqual({});
+    expect(validateLogin({ username: ' ', password: '' })).toEqual({
+      username: 'Ingresá un username.',
+      password: 'Ingresá tu contraseña.',
+    });
+  });
+});
 
 describe('validateCredentials', () => {
   it('accepts valid register credentials', () => {
@@ -36,6 +51,7 @@ describe('validateRegistration', () => {
     username: 'Player_1',
     email: 'a@b.co',
     password: '12345678',
+    country: 'AR',
     acceptLegal: true,
   };
 
@@ -51,6 +67,10 @@ describe('validateRegistration', () => {
     ['jugadór', 'Solo letras, números y guión bajo (_).'],
   ])('rejects the username %p', (username, message) => {
     expect(validateRegistration({ ...valid, username }).username).toBe(message);
+  });
+
+  it('requires a country', () => {
+    expect(validateRegistration({ ...valid, country: '' }).country).toBe('Elegí tu país.');
   });
 
   it('requires accepting the legal documents', () => {
