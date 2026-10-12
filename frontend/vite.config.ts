@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       css: false,
       restoreMocks: true,
+      // Generous limits: the full suite runs in parallel with typecheck and lint.
+      testTimeout: 15_000,
       coverage: {
         include: ['src/**/*.{ts,tsx}'],
         exclude: ['src/main.tsx', 'src/test/**', 'src/**/*.test.{ts,tsx}'],

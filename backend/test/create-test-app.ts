@@ -6,11 +6,22 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { CatalogDetailsService } from '../src/catalog/catalog-details.service';
+import { CatalogDiscoverService } from '../src/catalog/catalog-discover.service';
 import { CatalogHighlightsService } from '../src/catalog/catalog-highlights.service';
+import { CatalogReleasesService } from '../src/catalog/catalog-releases.service';
 import { CatalogSearchService } from '../src/catalog/catalog-search.service';
 import { GAME_CATALOG_PROVIDER } from '../src/catalog/game-catalog-provider';
+import { DealsService } from '../src/deals/deals.service';
+import { PRICE_PROVIDER } from '../src/deals/price-provider';
 import { EmailService } from '../src/email/email.service';
+import { NEWS_PROVIDERS } from '../src/news/news-provider';
+import { NewsService } from '../src/news/news.service';
+import { STEAM_API } from '../src/steam/steam-api';
+import { SteamService } from '../src/steam/steam.service';
 import { FakeCatalogProvider } from './fake-catalog-provider';
+import { FakeNewsProvider } from './fake-news-provider';
+import { FakePriceProvider } from './fake-price-provider';
+import { FakeSteamApi } from './fake-steam-api';
 import { MockEmailService } from './mock-email-service';
 
 /** Seeded by migrations; tests must never truncate them. */
@@ -26,6 +37,15 @@ export interface TestApp {
   dataSource: DataSource;
   /** Replaces the real IGDB provider: e2e tests never call external services. */
   catalog: FakeCatalogProvider;
+  /** Replaces IsThereAnyDeal. */
+  prices: FakePriceProvider;
+  /** Replaces the RSS feeds. */
+  /** Spanish feeds (configured by default). */
+  news: FakeNewsProvider;
+  /** English feeds (none by default: English requests fall back to Spanish). */
+  newsEn: FakeNewsProvider;
+  /** Replaces the Steam Web API and Steam's login. */
+  steam: FakeSteamApi;
   /** Replaces Resend: e2e tests never send real emails. */
   emails: MockEmailService;
   /** Empties all user/catalog data, keeping the reference data seeded by migrations. */
@@ -40,9 +60,19 @@ export interface TestAppOptions {
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
   const catalog = new FakeCatalogProvider();
   const emails = new MockEmailService();
+  const prices = new FakePriceProvider();
+  const news = new FakeNewsProvider(['revista.example']);
+  const newsEn = new FakeNewsProvider([]);
+  const steam = new FakeSteamApi();
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(GAME_CATALOG_PROVIDER)
     .useValue(catalog)
+    .overrideProvider(PRICE_PROVIDER)
+    .useValue(prices)
+    .overrideProvider(STEAM_API)
+    .useValue(steam)
+    .overrideProvider(NEWS_PROVIDERS)
+    .useValue({ es: news, en: newsEn })
     .overrideProvider(EmailService)
     .useValue(emails);
   if (options.authRateLimit !== undefined) {
@@ -69,11 +99,20 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     // Genres created by imports (unknown to the seed) are not reference data.
     await dataSource.query(`DELETE FROM "genres" WHERE "slug" LIKE 'igdb-%'`);
     catalog.reset();
+    prices.reset();
+    news.reset();
+    newsEn.reset();
+    steam.reset();
     emails.reset();
     app.get(CatalogSearchService).clearCache();
     app.get(CatalogDetailsService).clearCache();
     app.get(CatalogHighlightsService).clearCache();
+    app.get(CatalogDiscoverService).clearCache();
+    app.get(CatalogReleasesService).clearCache();
+    app.get(DealsService).clearCache();
+    app.get(NewsService).clearCache();
+    app.get(SteamService).clearCache();
   };
 
-  return { app, dataSource, catalog, emails, resetDatabase };
+  return { app, dataSource, catalog, prices, news, newsEn, steam, emails, resetDatabase };
 }

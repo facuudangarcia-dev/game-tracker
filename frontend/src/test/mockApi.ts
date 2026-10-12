@@ -10,14 +10,14 @@ type Handler = (request: MockRequest) => { status: number; body?: unknown };
 
 /**
  * Stubs global fetch with handlers keyed by "METHOD /path" (path without the
- * /api prefix, query string included). Health and an empty library are answered
- * by default (also empty platforms and genres); unhandled requests fail the test loudly.
+ * /api prefix, query string included). An empty library is answered by default (also empty platforms and genres); unhandled requests fail the test loudly.
  */
 /** Stats of a player without games. */
 export const emptyStats = {
   totalGames: 0,
   completed: 0,
   inProgress: 0,
+  played: 0,
   pending: 0,
   platinums: 0,
   totalMinutes: 0,
@@ -27,16 +27,61 @@ export const emptyStats = {
   topPlatform: null,
 };
 
+/** Profile highlights of a player without games. */
+export const emptyHighlights = {
+  mostPlayed: null,
+  fastest: null,
+  highestRated: null,
+  lowestRated: null,
+  favorites: [],
+};
+
+/** Price source without a key (ITAD_API_KEY). */
+export const notConfiguredPrices = {
+  configured: false,
+  available: false,
+  country: 'AR',
+  source: { name: 'IsThereAnyDeal', url: 'https://isthereanydeal.com' },
+};
+
+/** News without feeds (NEWS_RSS_FEEDS_ES / _EN). */
+export const notConfiguredNews = {
+  configured: false,
+  language: 'es',
+  available: false,
+  sources: [],
+  failedSources: [],
+  fetchedAt: null,
+  items: [],
+  total: 0,
+  page: 1,
+  hasMore: false,
+};
+
 export function mockApi(customHandlers: Record<string, Handler>) {
   const handlers: Record<string, Handler> = {
-    'GET /health': healthOk,
     'GET /library': () => ({ status: 200, body: [] }),
     'GET /platforms': () => ({ status: 200, body: [] }),
     'GET /genres': () => ({ status: 200, body: [] }),
+    // Steam linking (decision #78) not configured.
+    'GET /steam': () => ({ status: 200, body: { configured: false, account: null, excluded: [] } }),
+    // Social (decision #84): no friends nor requests.
+    'GET /friends': () => ({ status: 200, body: { friends: [], incoming: [], outgoing: [] } }),
     'GET /profile/stats': () => ({ status: 200, body: emptyStats }),
+    'GET /profile/highlights': () => ({ status: 200, body: emptyHighlights }),
     'GET /catalog/highlights': () => ({
       status: 200,
       body: { recent: [], upcoming: [], catalogAvailable: true },
+    }),
+    // Home modules (decisions #64-#67): nothing to recommend, sources not configured.
+    'GET /catalog/recommendations': () => ({
+      status: 200,
+      body: { personalized: false, basedOnGenres: [], games: [], catalogAvailable: true },
+    }),
+    'GET /news?lang=es': () => ({ status: 200, body: notConfiguredNews }),
+    'GET /deals/recommended?country=AR': () => ({
+      status: 200,
+      body: { ...notConfiguredPrices, personalized: false, items: [] },
     }),
     ...customHandlers,
   };
@@ -74,8 +119,9 @@ export const testUser = {
   email: 'player@example.com',
   emailVerified: true,
   avatar: null,
+  country: null,
+  profileVisibility: 'FRIENDS' as const,
+  legalAcceptanceRequired: false,
   createdAt: '2026-10-04T12:00:00.000Z',
 };
-
-export const healthOk = () => ({ status: 200, body: { status: 'ok', database: 'up' } });
 export const unauthenticated = () => ({ status: 401, body: { code: 'UNAUTHENTICATED' } });

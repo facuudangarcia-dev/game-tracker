@@ -1,5 +1,10 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/+$/, '');
 
+/** Full URL of an API path, for browser navigations (e.g. Steam's login). */
+export function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
