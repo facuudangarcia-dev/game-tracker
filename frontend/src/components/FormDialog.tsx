@@ -24,6 +24,8 @@ interface FormDialogProps {
   eyebrow?: string;
   /** Icon of the dialog's header. */
   icon?: ReactNode;
+  /** False: no close button nor "Cancelar" (a decision the user must take). */
+  dismissible?: boolean;
   children: ReactNode;
 }
 
@@ -42,6 +44,7 @@ export function FormDialog({
   error,
   eyebrow,
   icon,
+  dismissible = true,
   children,
 }: FormDialogProps) {
   const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
@@ -56,7 +59,7 @@ export function FormDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={dismissible ? onClose : undefined}
       fullScreen={fullScreen}
       fullWidth
       maxWidth="sm"
@@ -79,7 +82,7 @@ export function FormDialog({
           eyebrow={eyebrow}
           icon={icon}
           tone={tone}
-          onClose={onClose}
+          onClose={dismissible ? onClose : undefined}
         />
         <Stack spacing={2.5} sx={{ px: 3, pt: 3, pb: 3, flex: 1 }}>
           {children}
@@ -90,9 +93,11 @@ export function FormDialog({
           ) : null}
         </Stack>
         <DialogFooter>
-          <Button onClick={onClose} color="inherit">
-            {messages.common.cancel}
-          </Button>
+          {dismissible ? (
+            <Button onClick={onClose} color="inherit">
+              {messages.common.cancel}
+            </Button>
+          ) : null}
           <Button
             type="submit"
             variant="contained"

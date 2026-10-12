@@ -4,16 +4,18 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import { alpha } from '@mui/material/styles';
 import { useState } from 'react';
 import { setLocale, useLocale } from '../../i18n/locale';
 import { type Locale, LOCALES, messages } from '../../i18n/messages';
+import { ink } from '../../theme/brand';
 
 /** Language names are shown in their own language, whatever the current one is. */
 const LANGUAGE_NAMES: Record<Locale, string> = { es: 'Español', en: 'English' };
 
 /**
- * Flags as inline SVG: emoji flags don't render on Windows (they show "AR"/"US").
- * Argentina for Spanish (es-AR texts) and the United States for English (en-US).
+ * Flags as inline SVG: emoji flags don't render on Windows (they show "ES"/"US").
+ * Spain for Spanish and the United States for English.
  */
 function Flag({ locale, size = 22 }: { locale: Locale; size?: number }) {
   const common = {
@@ -27,9 +29,9 @@ function Flag({ locale, size = 22 }: { locale: Locale; size?: number }) {
   if (locale === 'es') {
     return (
       <svg {...common}>
-        <rect width="30" height="20" fill="#74acdf" />
-        <rect y="6.67" width="30" height="6.67" fill="#fff" />
-        <circle cx="15" cy="10" r="2.2" fill="#f6b40e" stroke="#85340a" strokeWidth="0.4" />
+        {/* Red, yellow (double height), red; simplified without the coat of arms. */}
+        <rect width="30" height="20" fill="#aa151b" />
+        <rect y="5" width="30" height="10" fill="#f1bf00" />
       </svg>
     );
   }
@@ -56,7 +58,18 @@ export function LanguageSelector() {
         aria-haspopup="menu"
         aria-expanded={anchor ? 'true' : undefined}
         onClick={(e) => setAnchor(e.currentTarget)}
-        sx={{ p: 1 }}
+        sx={(theme) => ({
+          // A small pill integrated in the header, like the nav items.
+          px: { xs: 0.9, sm: 1.25 },
+          py: 0.9,
+          borderRadius: 99,
+          border: `1px solid ${alpha(ink(theme), 0.1)}`,
+          bgcolor: alpha(ink(theme), 0.03),
+          '&:hover': {
+            borderColor: alpha(theme.palette.primary.main, 0.5),
+            bgcolor: alpha(theme.palette.primary.main, 0.08),
+          },
+        })}
       >
         <Flag locale={locale} />
       </IconButton>

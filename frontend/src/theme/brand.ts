@@ -6,6 +6,17 @@ import { alpha, type Theme } from '@mui/material/styles';
  */
 export const VIOLET = '#b48cff';
 
+/**
+ * Neutral "ink" of the current mode: white on dark, black on light. Use it with
+ * alpha() for subtle borders, washes and dividers so they work in both modes.
+ */
+export function ink(theme: Theme): string {
+  return theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.common.black;
+}
+
+/** Favorite games (hearts). */
+export const FAVORITE_COLOR = '#ff6b9a';
+
 /** Signature gradient (primary → violet → warm accent). */
 export function brandGradient(theme: Theme, angle = 100): string {
   return `linear-gradient(${angle}deg, ${theme.palette.primary.main} 10%, ${VIOLET} 55%, ${theme.palette.secondary.main} 100%)`;
@@ -34,7 +45,7 @@ export function panelSx(theme: Theme, accent: string = theme.palette.primary.mai
 export function glassSx(theme: Theme, opacity = 0.55) {
   return {
     bgcolor: alpha(theme.palette.background.default, opacity),
-    border: `1px solid ${alpha(theme.palette.common.white, 0.12)}`,
+    border: `1px solid ${alpha(ink(theme), 0.12)}`,
     backdropFilter: 'blur(14px)',
   } as const;
 }
@@ -49,11 +60,15 @@ export function ambientBackground(theme: Theme): string {
 }
 
 /** Status colors, shared by chips, dots and stats. */
-export function statusColor(theme: Theme, status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED') {
+export function statusColor(
+  theme: Theme,
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'PLAYED',
+) {
   return {
     PENDING: theme.palette.grey[500],
     IN_PROGRESS: theme.palette.info.main,
     COMPLETED: theme.palette.success.main,
+    PLAYED: VIOLET,
   }[status];
 }
 
@@ -92,24 +107,27 @@ export function toneColor(theme: Theme, tone: DialogTone): string {
 }
 
 /**
- * Surface of every dialog (reference: "Agregar juego"): dark, subtle border, soft
- * glow in the tone's color, and form fields in Game Tracker's style.
+ * Surface of every dialog (reference: "Agregar juego"): a solid dark surface with a
+ * subtle border and a neutral shadow that only separates it from the page (no
+ * colored halo); fields come from the theme. The tone shows in the
+ * header and the main button, not around the dialog.
  */
-export function dialogPaperSx(theme: Theme, fullScreen: boolean, tone: DialogTone = 'default') {
-  const color = toneColor(theme, tone);
+export function dialogPaperSx(theme: Theme, fullScreen: boolean, _tone: DialogTone = 'default') {
   return {
     borderRadius: fullScreen ? 0 : 4,
     overflow: 'hidden',
     backgroundImage: 'none',
     bgcolor: 'background.default',
-    border: fullScreen ? 'none' : `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
-    boxShadow: `0 40px 90px -30px ${alpha(color, 0.55)}`,
-    '& .MuiOutlinedInput-root': {
-      borderRadius: 2,
-      bgcolor: alpha(theme.palette.common.white, 0.03),
-      '& fieldset': { borderColor: alpha(theme.palette.common.white, 0.12) },
-      '&:hover fieldset': { borderColor: alpha(theme.palette.primary.main, 0.6) },
-    },
+    border: fullScreen ? 'none' : `1px solid ${alpha(ink(theme), 0.12)}`,
+    boxShadow: fullScreen
+      ? 'none'
+      : [
+          // Thin top highlight: depth without projecting light.
+          `inset 0 1px 0 ${alpha(ink(theme), 0.06)}`,
+          // Neutral, tight shadows that lift the surface off the page.
+          '0 2px 6px rgba(0, 0, 0, 0.35)',
+          '0 24px 48px -16px rgba(0, 0, 0, 0.7)',
+        ].join(', '),
   } as const;
 }
 
@@ -127,7 +145,7 @@ export function primaryActionSx(theme: Theme, tone: DialogTone = 'default') {
     boxShadow: `0 12px 28px -12px ${alpha(toneColor(theme, tone), 0.9)}`,
     '&:hover': { background, filter: 'brightness(1.08)' },
     '&.Mui-disabled': {
-      background: alpha(theme.palette.common.white, 0.08),
+      background: alpha(ink(theme), 0.08),
       color: theme.palette.text.disabled,
       boxShadow: 'none',
     },

@@ -40,7 +40,7 @@ describe('language', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'English' }));
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Your personal video game history' }),
+      await screen.findByRole('heading', { level: 1, name: 'Your gaming life, all in one place' }),
     ).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(within(nav).getByRole('link', { name: 'My games' })).toBeInTheDocument();

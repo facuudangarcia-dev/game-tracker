@@ -3,6 +3,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
+import { ink } from '../theme/brand';
 
 export interface Choice<T extends string> {
   value: T;
@@ -77,10 +78,10 @@ export function ChoiceChips<T extends string>({
                 typography: 'body2',
                 fontWeight: checked ? 700 : 500,
                 color: checked ? 'text.primary' : 'text.secondary',
-                border: `1px solid ${checked ? theme.palette.primary.main : alpha(theme.palette.common.white, 0.12)}`,
+                border: `1px solid ${checked ? theme.palette.primary.main : alpha(ink(theme), 0.12)}`,
                 bgcolor: checked
                   ? alpha(theme.palette.primary.main, 0.18)
-                  : alpha(theme.palette.common.white, 0.02),
+                  : alpha(ink(theme), 0.02),
                 boxShadow: checked
                   ? `0 0 18px -6px ${alpha(theme.palette.primary.main, 0.8)}`
                   : 'none',

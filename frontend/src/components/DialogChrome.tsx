@@ -6,7 +6,7 @@ import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import { messages } from '../i18n/messages';
-import { ambientBackground, type DialogTone, toneColor } from '../theme/brand';
+import { ambientBackground, type DialogTone, ink, toneColor } from '../theme/brand';
 
 interface DialogHeaderProps {
   /** Id of the title, for the dialog's aria-labelledby. */
@@ -16,7 +16,8 @@ interface DialogHeaderProps {
   eyebrow?: string;
   icon?: ReactNode;
   tone?: DialogTone;
-  onClose: () => void;
+  /** Without a close button (a required decision). */
+  onClose?: () => void;
 }
 
 /** Header shared by every dialog: ambient band, icon badge, context, title and close. */
@@ -44,7 +45,7 @@ export function DialogHeader({
             tone === 'danger'
               ? `radial-gradient(circle at 0% 0%, ${alpha(color, 0.22)}, transparent 55%), ${theme.palette.background.paper}`
               : ambientBackground(theme),
-          borderBottom: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
+          borderBottom: `1px solid ${alpha(ink(theme), 0.06)}`,
         };
       }}
     >
@@ -96,13 +97,15 @@ export function DialogHeader({
           {title}
         </Typography>
       </Box>
-      <IconButton
-        aria-label={messages.common.close}
-        onClick={onClose}
-        sx={{ position: 'absolute', top: 10, right: 10 }}
-      >
-        <CloseIcon fontSize="small" />
-      </IconButton>
+      {onClose ? (
+        <IconButton
+          aria-label={messages.common.close}
+          onClick={onClose}
+          sx={{ position: 'absolute', top: 10, right: 10 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      ) : null}
     </Box>
   );
 }
