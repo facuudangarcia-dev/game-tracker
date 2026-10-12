@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -19,8 +20,11 @@ import { buildDataSourceOptions } from './typeorm.config';
         // Entities are registered per feature module via TypeOrmModule.forFeature().
         entities: [],
         autoLoadEntities: true,
-        // Migrations are applied explicitly with `npm run migration:run`.
-        migrations: [],
+        // Locally, migrations are applied with `npm run migration:run`. Deploys
+        // set DB_MIGRATIONS_RUN=true: the compiled ones run on start (decision #89).
+        ...(config.get('DB_MIGRATIONS_RUN', { infer: true }) === 'true'
+          ? { migrationsRun: true, migrations: [join(__dirname, 'migrations', '*.js')] }
+          : { migrations: [] }),
       }),
     }),
   ],

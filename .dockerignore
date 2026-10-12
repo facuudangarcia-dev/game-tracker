@@ -1,0 +1,13 @@
+# Never in the image: secrets, local data, dependencies and build output.
+.env
+.env.*
+**/storage
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/*.tsbuildinfo
+**/*.log
+.git
+.vscode
+.idea
