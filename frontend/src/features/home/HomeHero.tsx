@@ -1,4 +1,5 @@
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import Box from '@mui/material/Box';
@@ -14,6 +15,7 @@ import { catalogGamePath } from '../catalog/queries';
 import { GameCover } from '../library/GameCover';
 import type { CatalogHighlight } from '../library/types';
 import { platformsLabel } from './homeFormat';
+import { ink } from '../../theme/brand';
 
 const t = messages.home;
 
@@ -34,6 +36,8 @@ interface HomeHeroProps {
   /** Game whose artwork is the background; null keeps the abstract backdrop. */
   featured: CatalogHighlight | null;
   onExplore: () => void;
+  /** Anonymous visitor: the actions become "create account" and "log in". */
+  anonymous?: boolean;
 }
 
 /**
@@ -41,7 +45,7 @@ interface HomeHeroProps {
  * "En portada" card linking to the game. Without artwork (loading, catalog
  * unavailable) it falls back to the abstract gradient backdrop.
  */
-export function HomeHero({ featured, onExplore }: HomeHeroProps) {
+export function HomeHero({ featured, onExplore, anonymous = false }: HomeHeroProps) {
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [lead, accent] = titleParts(t.title, t.titleAccent);
   const artworkUrl = featured?.artworkUrl ?? null;
@@ -56,7 +60,7 @@ export function HomeHero({ featured, onExplore }: HomeHeroProps) {
         isolation: 'isolate',
         overflow: 'hidden',
         borderRadius: { xs: 3, md: 4 },
-        border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+        border: `1px solid ${alpha(ink(theme), 0.08)}`,
         bgcolor: 'background.paper',
         minHeight: { xs: 660, sm: 520, md: 580 },
         display: 'flex',
@@ -186,20 +190,32 @@ export function HomeHero({ featured, onExplore }: HomeHeroProps) {
           spacing={1.5}
           sx={{ pt: 1, width: { xs: '100%', sm: 'auto' } }}
         >
-          <Button variant="contained" size="large" startIcon={<SearchIcon />} onClick={onExplore}>
-            {t.explore}
-          </Button>
+          {anonymous ? (
+            <Button
+              variant="contained"
+              size="large"
+              component={RouterLink}
+              to="/register"
+              startIcon={<PersonAddIcon />}
+            >
+              {messages.auth.register.title}
+            </Button>
+          ) : (
+            <Button variant="contained" size="large" startIcon={<SearchIcon />} onClick={onExplore}>
+              {t.explore}
+            </Button>
+          )}
           <Button
             variant="outlined"
             size="large"
             component={RouterLink}
-            to="/games"
+            to={anonymous ? '/login' : '/games'}
             sx={(theme) => ({
               bgcolor: alpha(theme.palette.background.default, 0.4),
               backdropFilter: 'blur(6px)',
             })}
           >
-            {t.library}
+            {anonymous ? messages.auth.login.title : t.library}
           </Button>
         </Stack>
       </Stack>
@@ -231,7 +247,7 @@ function FeaturedCard({ game }: { game: CatalogHighlight }) {
         textDecoration: 'none',
         borderRadius: 2.5,
         bgcolor: alpha(theme.palette.background.default, 0.55),
-        border: `1px solid ${alpha(theme.palette.common.white, 0.12)}`,
+        border: `1px solid ${alpha(ink(theme), 0.12)}`,
         backdropFilter: 'blur(14px)',
         transition: 'transform .2s ease, border-color .2s ease',
         '&:hover, &:focus-visible': {

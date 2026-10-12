@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography';
 import { Link as RouterLink } from 'react-router';
 import { messages } from '../../i18n/messages';
 import { formatMinutes } from '../../lib/format';
-import { panelSx, statusColor } from '../../theme/brand';
+import { ink, panelSx, statusColor } from '../../theme/brand';
 import type { LibraryEntry } from '../library/types';
 
 const t = messages.catalog;
@@ -45,8 +45,8 @@ export function MyGamePanel({ entries }: { entries: LibraryEntry[] }) {
               gap: { xs: 1.25, sm: 2 },
               p: 1.5,
               borderRadius: 2,
-              bgcolor: alpha(theme.palette.common.white, 0.03),
-              border: `1px solid ${alpha(theme.palette.common.white, 0.07)}`,
+              bgcolor: alpha(ink(theme), 0.03),
+              border: `1px solid ${alpha(ink(theme), 0.07)}`,
             })}
           >
             <Typography

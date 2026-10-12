@@ -58,7 +58,7 @@ export class CatalogSearchService {
     this.cache.clear();
   }
 
-  async search(rawQuery: string, userId: string): Promise<CatalogSearchResponseDto> {
+  async search(rawQuery: string, userId: string | null): Promise<CatalogSearchResponseDto> {
     const query = rawQuery.trim().replace(/\s+/g, ' ');
     const [remote, local] = await Promise.all([
       this.searchProvider(query),
@@ -116,13 +116,13 @@ export class CatalogSearchService {
     }
   }
 
-  /** Imported catalog games plus the user's own manual games matching the name. */
-  private searchLocal(query: string, userId: string): Promise<Game[]> {
+  /** Imported catalog games plus the user's own manual games (none when anonymous). */
+  private searchLocal(query: string, userId: string | null): Promise<Game[]> {
     const name = ILike(`%${escapeLikePattern(query)}%`);
     return this.games.find({
       where: [
         { name, createdByUserId: IsNull() },
-        { name, createdByUserId: userId },
+        ...(userId ? [{ name, createdByUserId: userId }] : []),
       ],
       relations: { platforms: true },
       order: { name: 'ASC' },

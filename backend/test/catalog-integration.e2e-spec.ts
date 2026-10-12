@@ -71,8 +71,11 @@ describe('Catalog integration: search, import and covers (e2e)', () => {
   }
 
   describe('GET /api/catalog/search', () => {
-    it('requires a session', async () => {
-      await request(app.getHttpServer()).get('/api/catalog/search?q=witcher').expect(401);
+    it('is public: anonymous visitors search the catalog', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/catalog/search?q=witcher')
+        .expect(200);
+      expect((response.body as CatalogSearchResponseDto).catalogAvailable).toBe(true);
     });
 
     it.each([[''], ['a'], ['x'.repeat(101)]])('rejects query %p with 400', async (q) => {
@@ -183,8 +186,8 @@ describe('Catalog integration: search, import and covers (e2e)', () => {
       expect(response.headers['cache-control']).toBe('private, max-age=86400');
     });
 
-    it('requires a session', async () => {
-      await request(app.getHttpServer()).get('/api/catalog/igdb/images/co1wyy').expect(401);
+    it('is public: anonymous visitors see catalog images', async () => {
+      await request(app.getHttpServer()).get('/api/catalog/igdb/images/co1wyy').expect(200);
     });
 
     it('returns 404 for unknown providers or invalid references', async () => {

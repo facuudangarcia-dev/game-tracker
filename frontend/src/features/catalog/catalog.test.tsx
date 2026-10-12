@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mockApi, testUser } from '../../test/mockApi';
+import { mockApi, notConfiguredPrices, testUser } from '../../test/mockApi';
 import { renderRoute } from '../../test/renderRoute';
 import type { CatalogGame, CatalogSearchResult, LibraryEntry, Platform } from '../library/types';
 
@@ -27,6 +27,7 @@ const spiderMan: CatalogGame = {
   screenshots: [],
   relatedGames: [],
   libraryEntries: [],
+  wishlistItemId: null,
 };
 
 const entry = (userGameId: string, platform: Platform): LibraryEntry => ({
@@ -69,7 +70,7 @@ describe('navigation, home and profile', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Tu historial personal de videojuegos',
+        name: 'Tu vida gamer, en un solo lugar',
       }),
     ).toBeInTheDocument();
     const main = screen.getByRole('main');
@@ -199,6 +200,120 @@ describe('catalog game page', () => {
     expect(screen.queryByRole('heading', { name: 'Partidas' })).not.toBeInTheDocument();
   });
 
+  it('shows the current PC prices in the user country, linking to each shop', async () => {
+    const price = (amount: number, shop: { id: number; name: string }, url: string) => ({
+      shop,
+      price: { amount, currency: 'USD' },
+      regular: { amount: 39.99, currency: 'USD' },
+      cut: Math.floor((1 - amount / 39.99) * 100),
+      storeLow: null,
+      historyLow: null,
+      platforms: ['Windows'],
+      drm: [],
+      voucher: null,
+      timestamp: '2026-10-09T08:00:00.000Z',
+      expiry: null,
+      url,
+    });
+    openCatalogPage(spiderMan, {
+      'GET /deals/games/igdb/1001?country=AR': () => ({
+        status: 200,
+        body: {
+          ...notConfiguredPrices,
+          configured: true,
+          available: true,
+          found: true,
+          deals: [
+            price(19.99, { id: 61, name: 'Steam' }, 'https://itad.link/steam/'),
+            price(29.99, { id: 35, name: 'GOG' }, 'https://itad.link/gog/'),
+          ],
+          historyLow: { amount: 9.99, currency: 'USD' },
+        },
+      }),
+    });
+
+    const panel = await screen.findByRole('region', { name: 'Precio en PC' });
+    expect(within(panel).getByText('US$ 19,99')).toBeInTheDocument();
+    expect(within(panel).getByLabelText('50 % de descuento')).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: /Ver oferta en Steam/ })).toHaveAttribute(
+      'href',
+      'https://itad.link/steam/',
+    );
+    expect(within(panel).getByRole('link', { name: /Ver oferta en GOG/ })).toHaveAttribute(
+      'href',
+      'https://itad.link/gog/',
+    );
+    expect(
+      within(panel).getByText(/Mínimo histórico según la fuente: US\$ 9,99/),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText(/Precios para Argentina/)).toBeInTheDocument();
+  });
+
+  it('changes the price country from the panel, keeping it when there are no prices', async () => {
+    const found = {
+      ...notConfiguredPrices,
+      configured: true,
+      available: true,
+      found: true,
+      historyLow: null,
+      deals: [
+        {
+          shop: { id: 61, name: 'Steam' },
+          price: { amount: 19.99, currency: 'USD' },
+          regular: { amount: 19.99, currency: 'USD' },
+          cut: 0,
+          storeLow: null,
+          historyLow: null,
+          platforms: ['Windows'],
+          drm: [],
+          voucher: null,
+          timestamp: '2026-10-09T08:00:00.000Z',
+          expiry: null,
+          url: 'https://itad.link/steam/',
+        },
+      ],
+    };
+    const { calls } = openCatalogPage(spiderMan, {
+      'GET /deals/games/igdb/1001?country=AR': () => ({ status: 200, body: found }),
+      'PUT /profile/country': () => ({ status: 200, body: { ...testUser, country: 'MX' } }),
+      'GET /deals/games/igdb/1001?country=MX': () => ({
+        status: 200,
+        body: { ...found, country: 'MX', found: false, deals: [] },
+      }),
+    });
+
+    const panel = await screen.findByRole('region', { name: 'Precio en PC' });
+    const country = within(panel).getByLabelText('País');
+    expect(country).toHaveValue('AR');
+    await userEvent.selectOptions(country, 'México');
+
+    expect(
+      await within(panel).findByText('No hay precios de PC de este juego para México.'),
+    ).toBeInTheDocument();
+    expect(within(panel).getByLabelText('País')).toHaveValue('MX');
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ country: 'MX' });
+  });
+
+  it('shows no price panel when the source does not have the game', async () => {
+    openCatalogPage(spiderMan, {
+      'GET /deals/games/igdb/1001?country=AR': () => ({
+        status: 200,
+        body: {
+          ...notConfiguredPrices,
+          configured: true,
+          available: true,
+          found: false,
+          deals: [],
+          historyLow: null,
+        },
+      }),
+    });
+    await screen.findByRole('heading', { level: 1, name: /Marvel's Spider-Man/ });
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Precio en PC' })).not.toBeInTheDocument(),
+    );
+  });
+
   it('adds the game with the chosen settings and opens "Mi juego"', async () => {
     const { calls, router } = openCatalogPage(spiderMan, {
       'POST /library': () => createdGame,
@@ -279,18 +394,62 @@ describe('catalog game page', () => {
     );
   });
 
-  it('requires a completion date when adding it as completed', async () => {
+  it('adds a completed game without completion date, with the hours played', async () => {
+    const { calls } = openCatalogPage(spiderMan, {
+      'POST /library': () => createdGame,
+      'GET /library/ug-new': () => ({ status: 404, body: {} }),
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Agregar juego' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Agregar juego' });
+    // Pending: no dates nor time played.
+    expect(within(dialog).queryByLabelText('Horas')).not.toBeInTheDocument();
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Plataforma/), 'PlayStation 5');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Completado' }));
+    expect(within(dialog).getByText('Horas dedicadas (opcional)')).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText('Horas'), '35');
+    await userEvent.type(within(dialog).getByLabelText('Minutos'), '20');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Agregar juego' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+        initialPlaythrough: { status: 'COMPLETED', completionDate: null, previousMinutes: 2120 },
+      }),
+    );
+  });
+
+  it('adds a game as played: start date and hours, but no completion date', async () => {
+    const { calls } = openCatalogPage(spiderMan, {
+      'POST /library': () => createdGame,
+      'GET /library/ug-new': () => ({ status: 404, body: {} }),
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Agregar juego' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Agregar juego' });
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Plataforma/), 'PlayStation 5');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Jugado' }));
+    expect(within(dialog).getByLabelText(/Fecha de inicio/)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Fecha de finalización/)).not.toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText('Horas'), '300');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Agregar juego' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+        initialPlaythrough: { status: 'PLAYED', completionDate: null, previousMinutes: 18000 },
+      }),
+    );
+  });
+
+  it('rejects invalid hours played', async () => {
     const { calls } = openCatalogPage(spiderMan);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Agregar juego' }));
     const dialog = await screen.findByRole('dialog', { name: 'Agregar juego' });
     await userEvent.selectOptions(within(dialog).getByLabelText(/Plataforma/), 'PlayStation 5');
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'Completado' }));
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'En progreso' }));
+    await userEvent.type(within(dialog).getByLabelText('Minutos'), '75');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Agregar juego' }));
 
-    expect(
-      within(dialog).getByText('Una partida completada requiere fecha de finalización.'),
-    ).toBeInTheDocument();
     expect(calls.some((c) => c.method === 'POST')).toBe(false);
   });
 

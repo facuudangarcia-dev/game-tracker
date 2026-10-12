@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import { messages } from '../../i18n/messages';
 import { SectionHeading } from './SectionHeading';
+import { ink } from '../../theme/brand';
 
 const t = messages.home.features;
 
@@ -87,8 +88,8 @@ function PlaythroughsVisual() {
             gap: 1.5,
             p: 1.25,
             borderRadius: 2,
-            bgcolor: alpha(theme.palette.common.white, 0.04),
-            border: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
+            bgcolor: alpha(ink(theme), 0.04),
+            border: `1px solid ${alpha(ink(theme), 0.06)}`,
           })}
         >
           <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 82 }}>
@@ -99,7 +100,7 @@ function PlaythroughsVisual() {
               flex: 1,
               height: 6,
               borderRadius: 3,
-              bgcolor: alpha(theme.palette.common.white, 0.08),
+              bgcolor: alpha(ink(theme), 0.08),
               overflow: 'hidden',
             })}
           >
@@ -209,7 +210,7 @@ function RatingVisual() {
         value={100}
         size={72}
         thickness={4}
-        sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.08), position: 'absolute' })}
+        sx={(theme) => ({ color: alpha(ink(theme), 0.08), position: 'absolute' })}
       />
       <CircularProgress variant="determinate" value={value} size={72} thickness={4} />
       <Typography

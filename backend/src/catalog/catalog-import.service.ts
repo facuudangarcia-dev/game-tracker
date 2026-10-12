@@ -96,20 +96,30 @@ export class CatalogImportService {
    */
   private async storeCover(ref: string): Promise<string | null> {
     try {
-      const image = await this.catalog.fetchImage(ref, 'cover');
-      const extension = extensionForContentType(image.contentType);
-      if (!extension) {
-        this.logger.warn(`Cover ${ref} has unsupported type ${image.contentType}`);
-        return null;
-      }
-      const hash = createHash('sha256').update(image.data).digest('hex');
-      const key = `covers/${hash}.${extension}`;
-      await this.assets.put(key, image.data, image.contentType);
-      return key;
+      return await this.storeCoverImage(await this.catalog.fetchImage(ref, 'cover'), ref);
     } catch (error) {
       this.logger.warn(`Cover ${ref} could not be stored: ${(error as Error).message}`);
       return null;
     }
+  }
+
+  /**
+   * Stores a cover image (content-addressed) and returns its key, or null if the
+   * type isn't supported. Also used for Steam games outside the catalog (#78).
+   */
+  async storeCoverImage(
+    image: { data: Buffer; contentType: string },
+    label: string,
+  ): Promise<string | null> {
+    const extension = extensionForContentType(image.contentType);
+    if (!extension) {
+      this.logger.warn(`Cover ${label} has unsupported type ${image.contentType}`);
+      return null;
+    }
+    const hash = createHash('sha256').update(image.data).digest('hex');
+    const key = `covers/${hash}.${extension}`;
+    await this.assets.put(key, image.data, image.contentType);
+    return key;
   }
 
   private findImported(provider: CatalogProvider, externalId: string): Promise<Game | null> {

@@ -1,6 +1,8 @@
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
@@ -14,8 +16,10 @@ import { catalogGamePath } from '../catalog/queries';
 import { GameCover } from '../library/GameCover';
 import type { CatalogHighlight } from '../library/types';
 import { posterLinkSx } from '../../theme/brand';
+import { CalendarBadge } from './CalendarBadge';
 import { calendarParts, platformsLabel } from './homeFormat';
 import { SectionHeading } from './SectionHeading';
+import { DarkSurface } from '../../theme/DarkSurface';
 
 const t = messages.home;
 
@@ -30,6 +34,8 @@ interface RailProps {
   columns: Columns;
   loading: boolean;
   skeletonRatio: string;
+  /** "See all" link to the section's page. */
+  viewAllTo?: string;
   children: ReactNode;
 }
 
@@ -42,6 +48,7 @@ export function Rail({
   columns,
   loading,
   skeletonRatio,
+  viewAllTo,
   children,
 }: RailProps) {
   const listRef = useRef<HTMLUListElement>(null);
@@ -67,11 +74,29 @@ export function Rail({
         title={title}
         subtitle={subtitle}
         actions={
-          <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', sm: 'flex' } }}>
-            <IconButton aria-label={t.railPrevious} onClick={() => scroll(-1)} sx={railButtonSx}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            {viewAllTo ? (
+              <Button
+                component={RouterLink}
+                to={viewAllTo}
+                endIcon={<ArrowForwardIcon />}
+                sx={{ fontWeight: 700, whiteSpace: 'nowrap', borderRadius: 99 }}
+              >
+                {t.viewAll}
+              </Button>
+            ) : null}
+            <IconButton
+              aria-label={t.railPrevious}
+              onClick={() => scroll(-1)}
+              sx={{ ...railButtonSx, display: { xs: 'none', sm: 'inline-flex' } }}
+            >
               <ChevronLeftIcon />
             </IconButton>
-            <IconButton aria-label={t.railNext} onClick={() => scroll(1)} sx={railButtonSx}>
+            <IconButton
+              aria-label={t.railNext}
+              onClick={() => scroll(1)}
+              sx={{ ...railButtonSx, display: { xs: 'none', sm: 'inline-flex' } }}
+            >
               <ChevronRightIcon />
             </IconButton>
           </Stack>
@@ -126,10 +151,11 @@ const railButtonSx = {
 interface HighlightsRailProps {
   games: CatalogHighlight[];
   loading: boolean;
+  viewAllTo?: string;
 }
 
 /** Recent releases as posters, with their position in the "most anticipated" ranking. */
-export function RecentReleasesRail({ games, loading }: HighlightsRailProps) {
+export function RecentReleasesRail({ games, loading, viewAllTo }: HighlightsRailProps) {
   return (
     <Rail
       id="home-recent"
@@ -139,6 +165,7 @@ export function RecentReleasesRail({ games, loading }: HighlightsRailProps) {
       columns={{ xs: 2.3, sm: 3.5, md: 6 }}
       loading={loading}
       skeletonRatio="3 / 4"
+      viewAllTo={viewAllTo}
     >
       {games.map((game, index) => {
         const year = formatYear(game.releaseDate);
@@ -200,7 +227,7 @@ export function RecentReleasesRail({ games, loading }: HighlightsRailProps) {
 }
 
 /** Upcoming releases as wide artwork cards with a "calendar page" date badge. */
-export function UpcomingReleasesRail({ games, loading }: HighlightsRailProps) {
+export function UpcomingReleasesRail({ games, loading, viewAllTo }: HighlightsRailProps) {
   return (
     <Rail
       id="home-upcoming"
@@ -210,90 +237,63 @@ export function UpcomingReleasesRail({ games, loading }: HighlightsRailProps) {
       columns={{ xs: 1.2, sm: 2.2, md: 3 }}
       loading={loading}
       skeletonRatio="16 / 9"
+      viewAllTo={viewAllTo}
     >
       {games.map((game) => {
         const date = game.releaseDate ? calendarParts(game.releaseDate) : null;
         const image = game.artworkUrl ?? game.coverUrl;
         return (
           <Box component="li" key={game.externalId} sx={{ scrollSnapAlign: 'start', minWidth: 0 }}>
-            <Box
-              component={RouterLink}
-              to={catalogGamePath(game.provider, game.externalId)}
-              sx={(theme) => ({
-                ...posterLinkSx,
-                '&:hover .card-media, &:focus-visible .card-media': {
-                  transform: 'translateY(-6px)',
-                  boxShadow: `0 18px 40px -18px ${alpha(theme.palette.secondary.main, 0.7)}, 0 0 0 1px ${alpha(theme.palette.secondary.main, 0.55)}`,
-                },
-              })}
-            >
-              <Box className="card-media" sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover' }}>
-                {image ? (
-                  <Box
-                    component="img"
-                    src={image}
-                    alt={game.name}
-                    loading="lazy"
-                    sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                ) : null}
-                <Box
-                  aria-hidden
-                  sx={{
-                    position: 'absolute',
-                    inset: 0,
-                    background:
-                      'linear-gradient(0deg, rgba(10,12,16,0.95) 0%, rgba(10,12,16,0.35) 50%, transparent 75%)',
-                  }}
-                />
-                {date ? (
-                  <Box
-                    aria-label={t.releaseDate(date.long)}
-                    sx={(theme) => ({
-                      position: 'absolute',
-                      top: 10,
-                      left: 10,
-                      width: 52,
-                      borderRadius: 1.5,
-                      overflow: 'hidden',
-                      textAlign: 'center',
-                      bgcolor: alpha(theme.palette.background.default, 0.75),
-                      backdropFilter: 'blur(8px)',
-                      border: `1px solid ${alpha(theme.palette.common.white, 0.14)}`,
-                    })}
-                  >
+            <DarkSurface>
+              <Box
+                component={RouterLink}
+                to={catalogGamePath(game.provider, game.externalId)}
+                sx={(theme) => ({
+                  ...posterLinkSx,
+                  '&:hover .card-media, &:focus-visible .card-media': {
+                    transform: 'translateY(-6px)',
+                    boxShadow: `0 18px 40px -18px ${alpha(theme.palette.secondary.main, 0.7)}, 0 0 0 1px ${alpha(theme.palette.secondary.main, 0.55)}`,
+                  },
+                })}
+              >
+                <Box className="card-media" sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover' }}>
+                  {image ? (
                     <Box
-                      aria-hidden
-                      sx={{
-                        bgcolor: 'secondary.main',
-                        color: 'secondary.contrastText',
-                        fontSize: '0.65rem',
-                        fontWeight: 800,
-                        letterSpacing: 1,
-                        textTransform: 'uppercase',
-                        py: 0.25,
-                      }}
+                      component="img"
+                      src={image}
+                      alt={game.name}
+                      loading="lazy"
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : null}
+                  <Box
+                    aria-hidden
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      background:
+                        'linear-gradient(0deg, rgba(10,12,16,0.95) 0%, rgba(10,12,16,0.35) 50%, transparent 75%)',
+                    }}
+                  />
+                  {date && game.releaseDate ? (
+                    <Box
+                      aria-label={t.releaseDate(date.long)}
+                      sx={{ position: 'absolute', top: 10, left: 10 }}
                     >
-                      {date.month}
+                      <CalendarBadge date={game.releaseDate} decorative />
                     </Box>
-                    <Box aria-hidden sx={{ fontSize: '1.35rem', fontWeight: 900, lineHeight: 1.3 }}>
-                      {date.day}
-                    </Box>
-                    <Box aria-hidden sx={{ fontSize: '0.6rem', color: 'text.secondary', pb: 0.25 }}>
-                      {date.year}
-                    </Box>
+                  ) : null}
+                  <Box sx={{ position: 'absolute', left: 14, right: 14, bottom: 10 }}>
+                    <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800 }}>
+                      {game.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap component="p">
+                      {platformsLabel(game)}
+                    </Typography>
                   </Box>
-                ) : null}
-                <Box sx={{ position: 'absolute', left: 14, right: 14, bottom: 10 }}>
-                  <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800 }}>
-                    {game.name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap component="p">
-                    {platformsLabel(game)}
-                  </Typography>
                 </Box>
               </Box>
-            </Box>
+            </DarkSurface>
           </Box>
         );
       })}

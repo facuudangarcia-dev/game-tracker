@@ -23,6 +23,10 @@ export class TtlCache<T> {
     return entry.value;
   }
 
+  delete(key: string): void {
+    this.entries.delete(key);
+  }
+
   clear(): void {
     this.entries.clear();
   }

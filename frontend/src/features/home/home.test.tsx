@@ -53,7 +53,7 @@ describe('Home showcase', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Tu historial personal de videojuegos',
+        name: 'Tu vida gamer, en un solo lugar',
       }),
     ).toBeInTheDocument();
     const main = screen.getByRole('main');
@@ -123,7 +123,7 @@ describe('Home showcase', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Tu historial personal de videojuegos',
+        name: 'Tu vida gamer, en un solo lugar',
       }),
     ).toBeInTheDocument();
     // 5xx errors are retried once before giving up.

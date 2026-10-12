@@ -6,10 +6,13 @@ import type { EnvironmentVariables } from '../config/env.validation';
 import { Game } from '../games/game.entity';
 import { GenresModule } from '../genres/genres.module';
 import { PlatformsModule } from '../platforms/platforms.module';
+import { CatalogCardsService } from './catalog-cards.service';
 import { CatalogDetailsService } from './catalog-details.service';
+import { CatalogDiscoverService } from './catalog-discover.service';
 import { CatalogHighlightsService } from './catalog-highlights.service';
 import { CatalogImportService } from './catalog-import.service';
 import { CatalogProvider } from './catalog-provider';
+import { CatalogReleasesService } from './catalog-releases.service';
 import { CatalogSearchService } from './catalog-search.service';
 import { CatalogController } from './catalog.controller';
 import { GAME_CATALOG_PROVIDER, type GameCatalogProvider } from './game-catalog-provider';
@@ -46,7 +49,15 @@ function createCatalogProvider(
     CatalogImportService,
     CatalogDetailsService,
     CatalogHighlightsService,
+    CatalogCardsService,
+    CatalogDiscoverService,
+    CatalogReleasesService,
   ],
-  exports: [GAME_CATALOG_PROVIDER, CatalogImportService],
+  exports: [
+    GAME_CATALOG_PROVIDER,
+    CatalogImportService,
+    CatalogCardsService,
+    CatalogDetailsService,
+  ],
 })
 export class CatalogModule {}

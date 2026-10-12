@@ -7,6 +7,7 @@ import { GenresService } from '../genres/genres.service';
 import { PlayStatus } from '../library/library.constants';
 import { UserGameSummary } from '../library/library-views.entity';
 import { UserGame } from '../library/user-game.entity';
+import { WishlistItem } from '../wishlist/wishlist-item.entity';
 import { type PlatformResponseDto, toPlatformResponse } from '../platforms/platforms.controller';
 import { PlatformsService, resolvePlatforms } from '../platforms/platforms.service';
 import { assetUrl, catalogArtworkUrl, catalogCoverUrl, catalogScreenshotUrl } from './catalog-urls';
@@ -44,6 +45,8 @@ export interface CatalogGameDto {
   relatedGames: RelatedGameDto[];
   /** The current user's UserGames of this game (one per platform), with their progress. */
   libraryEntries: LibraryEntryDto[];
+  /** The current user's wishlist entry of this game, if any (decision #66). */
+  wishlistItemId: string | null;
 }
 
 export interface RelatedGameDto {
@@ -90,7 +93,7 @@ export class CatalogDetailsService {
     private readonly genres: GenresService,
   ) {}
 
-  async get(userId: string, provider: string, externalId: string): Promise<CatalogGameDto> {
+  async get(userId: string | null, provider: string, externalId: string): Promise<CatalogGameDto> {
     if (provider !== String(this.catalog.id)) {
       throw catalogGameNotFound();
     }
@@ -118,6 +121,7 @@ export class CatalogDetailsService {
         developers: local.developers,
         publishers: local.publishers,
         libraryEntries: await this.libraryEntries(userId, local.id),
+        wishlistItemId: await this.wishlistItemId(userId, local.id),
       };
     }
 
@@ -140,7 +144,24 @@ export class CatalogDetailsService {
       developers: details.developers,
       publishers: details.publishers,
       libraryEntries: [],
+      // Wishlisted games are always imported: a game that isn't can't be wishlisted.
+      wishlistItemId: null,
     };
+  }
+
+  /**
+   * Name of a catalog game (stored or from the provider, cached), e.g. to find
+   * it in the price source. Throws 404/503 like `get`.
+   */
+  async nameOf(provider: string, externalId: string): Promise<string> {
+    if (provider !== String(this.catalog.id)) {
+      throw catalogGameNotFound();
+    }
+    const local = await this.games.findOne({
+      where: { provider: this.catalog.id, externalId },
+      select: { id: true, name: true },
+    });
+    return local?.name ?? (await this.fetchDetails(externalId)).name;
   }
 
   /** For tests. */
@@ -205,7 +226,20 @@ export class CatalogDetailsService {
     }
   }
 
-  private async libraryEntries(userId: string, gameId: string): Promise<LibraryEntryDto[]> {
+  private async wishlistItemId(userId: string | null, gameId: string): Promise<string | null> {
+    if (!userId) {
+      return null;
+    }
+    const item = await this.dataSource
+      .getRepository(WishlistItem)
+      .findOne({ where: { userId, gameId }, select: { id: true } });
+    return item?.id ?? null;
+  }
+
+  private async libraryEntries(userId: string | null, gameId: string): Promise<LibraryEntryDto[]> {
+    if (!userId) {
+      return [];
+    }
     const userGames = await this.dataSource.getRepository(UserGame).find({
       where: { userId, gameId },
       relations: { platform: true },

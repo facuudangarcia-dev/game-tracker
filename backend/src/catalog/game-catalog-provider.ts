@@ -55,6 +55,44 @@ export interface CatalogImage {
   contentType: string;
 }
 
+/** Order of the Discover grid (decision #64). */
+export type CatalogDiscoverSort = 'popular' | 'top-rated' | 'newest' | 'anticipated';
+
+/** Filters of the Discover grid; ids are the provider's. Dates are YYYY-MM-DD (inclusive). */
+export interface CatalogDiscoverFilter {
+  platformExternalIds: string[];
+  genreExternalIds: string[];
+  releasedFrom: string | null;
+  releasedTo: string | null;
+  sort: CatalogDiscoverSort;
+  /** Games never returned (e.g. already in the user's library). */
+  excludeExternalIds: string[];
+  limit: number;
+  offset: number;
+}
+
+/** How precise a release date is: estimated dates are a month, a quarter or a year. */
+export type ReleaseDatePrecision = 'day' | 'month' | 'quarter' | 'year';
+
+/** A game released (or to be released) on a date of the requested range. */
+export interface CatalogRelease extends CatalogHighlight {
+  /** YYYY-MM-DD; for estimated dates, a day inside the period (month, quarter or year). */
+  date: string;
+  precision: ReleaseDatePrecision;
+  /** Provider platform ids released on that date (a subset of the game's). */
+  releasePlatformExternalIds: string[];
+}
+
+export interface CatalogReleaseFilter {
+  platformExternalIds: string[];
+  genreExternalIds: string[];
+}
+
+/** Ids of a game in other stores, to look prices up (decision #66). */
+export interface CatalogStoreIds {
+  steamAppId: string | null;
+}
+
 /**
  * Abstraction over external game catalogs (IGDB first). Implementations only
  * return entry types allowed by docs/decisions.md #27.
@@ -66,6 +104,25 @@ export interface GameCatalogProvider {
   getGame(externalId: string): Promise<CatalogGameDetails | null>;
   /** Notable games, most anticipated first; adult content excluded. */
   listHighlights(kind: CatalogHighlightKind, limit: number): Promise<CatalogHighlight[]>;
+  /** Filtered catalog page for Discover (allowed types, with cover, no adult content). */
+  discoverGames(filter: CatalogDiscoverFilter): Promise<CatalogHighlight[]>;
+  /**
+   * Games similar to the given ones (recommendations), most relevant first,
+   * excluding `excludeExternalIds`.
+   */
+  listSimilarGames(
+    externalIds: string[],
+    excludeExternalIds: string[],
+    limit: number,
+  ): Promise<CatalogHighlight[]>;
+  /** Notable games with a release date in [from, to] (YYYY-MM-DD), earliest first. */
+  listReleases(from: string, to: string, filter: CatalogReleaseFilter): Promise<CatalogRelease[]>;
+  /** Notable announced games without any release date yet, most anticipated first. */
+  listUndatedGames(filter: CatalogReleaseFilter, limit: number): Promise<CatalogHighlight[]>;
+  /** Store ids of the given games (missing games are absent from the map). */
+  getStoreIds(externalIds: string[]): Promise<Map<string, CatalogStoreIds>>;
+  /** Catalog games of the given Steam apps (decision #78): appId -> external id. */
+  findBySteamAppIds(appIds: number[]): Promise<Map<number, string>>;
   isValidImageRef(ref: string): boolean;
   fetchImage(ref: string, variant: CatalogImageVariant): Promise<CatalogImage>;
   listPlatforms(): Promise<CatalogTaxonomyEntry[]>;

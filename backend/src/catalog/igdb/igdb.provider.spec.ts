@@ -1,6 +1,12 @@
 import { CatalogUnavailableError } from '../game-catalog-provider';
 import type { FetchFn, IgdbClient } from './igdb-client';
-import { escapeSearchTerm, IGDB_IMAGE_URL, IgdbProvider, pickWideImage } from './igdb.provider';
+import {
+  escapeSearchTerm,
+  groupReleases,
+  IGDB_IMAGE_URL,
+  IgdbProvider,
+  pickWideImage,
+} from './igdb.provider';
 
 function setup(results: unknown[][] = []) {
   const query = jest.fn<Promise<unknown[]>, [string, string]>(() =>
@@ -260,5 +266,193 @@ describe('IgdbProvider', () => {
 
     expect(platforms).toHaveLength(501);
     expect(query.mock.calls[1][1]).toContain('offset 500;');
+  });
+
+  describe('discoverGames', () => {
+    const base = {
+      platformExternalIds: [],
+      genreExternalIds: [],
+      releasedFrom: null,
+      releasedTo: null,
+      excludeExternalIds: [],
+      limit: 25,
+      offset: 0,
+    };
+
+    it('combines filters, excludes games and sorts by popularity', async () => {
+      const { provider, query } = setup([
+        [
+          { id: 1, name: 'Shown', cover: { image_id: 'c1' }, game_type: 0, platforms: [167] },
+          { id: 2, name: 'Adult', cover: { image_id: 'c2' }, game_type: 0, themes: [42] },
+          { id: 3, name: 'DLC', cover: { image_id: 'c3' }, game_type: 1 },
+        ],
+      ]);
+
+      const games = await provider.discoverGames({
+        ...base,
+        platformExternalIds: ['167', '48'],
+        genreExternalIds: ['12', 'x'],
+        releasedFrom: '2024-01-01',
+        releasedTo: '2024-12-31',
+        excludeExternalIds: ['99'],
+        sort: 'popular',
+        offset: 50,
+      });
+
+      const body = query.mock.calls[0][1];
+      expect(body).toContain('cover != null');
+      expect(body).toContain('themes != (42)');
+      expect(body).toContain('platforms = (167,48)');
+      // Non-numeric ids never reach the query.
+      expect(body).toContain('genres = (12)');
+      expect(body).toContain(`first_release_date >= ${Date.parse('2024-01-01') / 1000}`);
+      expect(body).toContain(`first_release_date < ${Date.parse('2025-01-01') / 1000}`);
+      expect(body).toContain('id != (99)');
+      expect(body).toContain('sort total_rating_count desc; limit 25; offset 50;');
+      expect(games.map((g) => g.name)).toEqual(['Shown']);
+    });
+
+    it('top-rated requires a minimum of ratings; newest only released games', async () => {
+      const { provider, query } = setup();
+      const now = new Date('2026-10-10T00:00:00Z');
+      await provider.discoverGames({ ...base, sort: 'top-rated' }, now);
+      await provider.discoverGames({ ...base, sort: 'newest' }, now);
+      await provider.discoverGames({ ...base, sort: 'anticipated' }, now);
+
+      expect(query.mock.calls[0][1]).toContain('total_rating_count >= 10');
+      expect(query.mock.calls[0][1]).toContain('sort total_rating desc');
+      expect(query.mock.calls[1][1]).toContain(`first_release_date <= ${now.getTime() / 1000}`);
+      expect(query.mock.calls[1][1]).toContain('sort first_release_date desc');
+      expect(query.mock.calls[2][1]).toContain('sort hypes desc');
+    });
+  });
+
+  describe('listSimilarGames', () => {
+    it('ranks games similar to several seeds first, skipping excluded and adult games', async () => {
+      const card = (id: number, extra: object = {}) => ({
+        id,
+        name: `Game ${id}`,
+        cover: { image_id: `c${id}` },
+        game_type: 0,
+        ...extra,
+      });
+      const { provider, query } = setup([
+        [
+          { id: 1, similar_games: [card(10), card(11), card(12, { themes: [42] })] },
+          { id: 2, similar_games: [card(11), card(13), card(1)] },
+        ],
+      ]);
+
+      const games = await provider.listSimilarGames(['1', '2'], ['13'], 10);
+
+      expect(query.mock.calls[0][1]).toContain('where id = (1,2);');
+      expect(games.map((g) => g.externalId)).toEqual(['11', '10']);
+    });
+
+    it('does not query without seeds', async () => {
+      const { provider, query } = setup();
+      expect(await provider.listSimilarGames([], [], 10)).toEqual([]);
+      expect(query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listReleases', () => {
+    it('queries notable release dates of the range with the filters', async () => {
+      const { provider, query } = setup([[]]);
+
+      await provider.listReleases('2026-10-01', '2026-10-31', {
+        platformExternalIds: ['167'],
+        genreExternalIds: ['12'],
+      });
+
+      const [endpoint, body] = query.mock.calls[0];
+      expect(endpoint).toBe('release_dates');
+      expect(body).toContain(`date >= ${Date.parse('2026-10-01') / 1000}`);
+      expect(body).toContain(`date < ${Date.parse('2026-11-01') / 1000}`);
+      expect(body).toContain('date_format != 7');
+      expect(body).toContain('game.hypes > 0');
+      expect(body).toContain('platform = (167)');
+      expect(body).toContain('game.genres = (12)');
+      expect(body).toContain('sort date asc; limit 500; offset 0;');
+    });
+
+    it('pages through big ranges', async () => {
+      const row = { date: 1791763200, date_format: 0, platform: 6 };
+      const page = Array.from({ length: 500 }, (_, i) => ({
+        ...row,
+        game: { id: i, name: `G${i}`, game_type: 0 },
+      }));
+      const { provider, query } = setup([page, []]);
+
+      const releases = await provider.listReleases('2026-10-01', '2026-10-31', {
+        platformExternalIds: [],
+        genreExternalIds: [],
+      });
+
+      expect(query).toHaveBeenCalledTimes(2);
+      expect(query.mock.calls[1][1]).toContain('offset 500;');
+      expect(releases).toHaveLength(500);
+    });
+  });
+
+  describe('groupReleases', () => {
+    const game = (id: number, hypes = 0) => ({
+      id,
+      name: `Game ${id}`,
+      cover: { image_id: `c${id}` },
+      game_type: 0,
+      platforms: [6, 48, 167],
+      hypes,
+    });
+
+    it('keeps the earliest date per game, its most precise format and its platforms', () => {
+      const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 1000;
+      const releases = groupReleases([
+        { date: day('2026-10-20'), date_format: 0, platform: 167, game: game(1, 5) },
+        { date: day('2026-10-12'), date_format: 1, platform: 6, game: game(1, 5) },
+        { date: day('2026-10-12'), date_format: 0, platform: 48, game: game(1, 5) },
+        { date: day('2026-10-12'), date_format: 0, platform: 6, game: game(2, 50) },
+        { date: day('2026-12-31'), date_format: 6, platform: 6, game: game(3) },
+        { date: day('2026-12-31'), date_format: 7, platform: 6, game: game(4) },
+        {
+          date: day('2026-11-01'),
+          date_format: 0,
+          platform: 6,
+          game: { ...game(5), themes: [42] },
+        },
+      ]);
+
+      expect(releases.map((r) => [r.externalId, r.date, r.precision])).toEqual([
+        // Same day: the most anticipated first.
+        ['2', '2026-10-12', 'day'],
+        ['1', '2026-10-12', 'day'],
+        ['3', '2026-12-31', 'quarter'],
+      ]);
+      expect(releases[1].releasePlatformExternalIds).toEqual(['6', '48']);
+      expect(releases[1].platformExternalIds).toEqual(['6', '48', '167']);
+    });
+  });
+
+  describe('getStoreIds', () => {
+    it('returns the Steam app id when IGDB knows it', async () => {
+      const { provider, query } = setup([
+        [
+          {
+            id: 1942,
+            external_games: [
+              { uid: 'B00T3SPV36', external_game_source: 20 },
+              { uid: '292030', external_game_source: 1 },
+            ],
+          },
+          { id: 7, external_games: [{ uid: 'not-a-number', external_game_source: 1 }] },
+        ],
+      ]);
+
+      const ids = await provider.getStoreIds(['1942', '7', 'bad']);
+
+      expect(query.mock.calls[0][1]).toContain('where id = (1942,7);');
+      expect(ids.get('1942')).toEqual({ steamAppId: '292030' });
+      expect(ids.get('7')).toEqual({ steamAppId: null });
+    });
   });
 });

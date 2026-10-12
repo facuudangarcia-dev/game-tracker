@@ -73,8 +73,17 @@ describe('Catalog exploration and configured add (e2e)', () => {
     });
 
   describe('GET /api/catalog/games/:provider/:externalId', () => {
-    it('requires a session', async () => {
-      await request(app.getHttpServer()).get('/api/catalog/games/igdb/1001').expect(401);
+    it("is public: anonymous visitors see the game but never anyone's library", async () => {
+      await addSpiderMan(alice, 'ps5').expect(201);
+
+      const anonymous = (
+        await request(app.getHttpServer()).get('/api/catalog/games/igdb/1001').expect(200)
+      ).body as CatalogGameDto;
+      expect(anonymous.name).toBe("Marvel's Spider-Man");
+      expect(anonymous.libraryEntries).toEqual([]);
+
+      const own = (await getCatalogGame(alice).expect(200)).body as CatalogGameDto;
+      expect(own.libraryEntries).toHaveLength(1);
     });
 
     it('shows a not-yet-imported game from the provider without storing anything', async () => {
@@ -120,6 +129,7 @@ describe('Catalog exploration and configured add (e2e)', () => {
           },
         ],
         libraryEntries: [],
+        wishlistItemId: null,
       });
       await expect(dataSource.getRepository(Game).count()).resolves.toBe(0);
       await expect(dataSource.getRepository(Genre).countBy({ name: 'Superhero' })).resolves.toBe(0);
@@ -196,7 +206,7 @@ describe('Catalog exploration and configured add (e2e)', () => {
       ).body as UserGameDetailsDto;
       const base = `/api/library/${added.id}`;
       await as(app, alice)
-        .put(`${base}/playthroughs/${added.playthroughs[0].id}/manual-time`, { minutes: 754 })
+        .patch(`${base}/playthroughs/${added.playthroughs[0].id}`, { previousMinutes: 754 })
         .expect(200);
       await as(app, alice)
         .put(`${base}/platinum`, { achieved: true, date: '2025-03-01', timeMinutes: 900 })
@@ -267,7 +277,6 @@ describe('Catalog exploration and configured add (e2e)', () => {
           status: 'IN_PROGRESS',
           startDate: '2026-01-10',
           difficulty: { id: expect.any(String), name: 'Difícil' },
-          timeMode: 'MANUAL',
         }),
       ]);
       expect(
@@ -289,8 +298,23 @@ describe('Catalog exploration and configured add (e2e)', () => {
       expect(body).toMatchObject({ status: 'COMPLETED', completionDate: '2025-02-01' });
     });
 
+    it('adds a completed game without a completion date, with the time already played', async () => {
+      const body = (
+        await addSpiderMan(alice, 'ps4', {
+          initialPlaythrough: { status: 'COMPLETED', previousMinutes: 1234 },
+        }).expect(201)
+      ).body as UserGameDetailsDto;
+      expect(body).toMatchObject({
+        status: 'COMPLETED',
+        completionDate: null,
+        totalMinutes: 1234,
+      });
+      expect(body.playthroughs[0]).toMatchObject({ completionDate: null, previousMinutes: 1234 });
+    });
+
     it.each([
-      [{ initialPlaythrough: { status: 'COMPLETED' } }, 'COMPLETION_DATE_REQUIRED'],
+      [{ initialPlaythrough: { previousMinutes: -1 } }, undefined],
+      [{ initialPlaythrough: { previousMinutes: 1.5 } }, undefined],
       [
         { initialPlaythrough: { status: 'PENDING', completionDate: '2025-01-01' } },
         'COMPLETION_DATE_NOT_ALLOWED',

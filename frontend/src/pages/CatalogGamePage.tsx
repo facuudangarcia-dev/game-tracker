@@ -14,12 +14,16 @@ import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
+import { useCurrentUser } from '../features/auth/useCurrentUser';
+import type { AuthLocationState } from '../features/auth/authLocation';
 import { GameSummary } from '../features/catalog/GameSummary';
 import { MyGamePanel } from '../features/catalog/MyGamePanel';
 import { useCatalogGame } from '../features/catalog/queries';
 import { RelatedGamesRail } from '../features/catalog/RelatedGamesRail';
 import { ScreenshotGallery } from '../features/catalog/ScreenshotGallery';
+import { GamePricePanel } from '../features/explore/GamePricePanel';
+import { WishlistButton } from '../features/explore/WishlistButton';
 import { AddToLibraryDialog } from '../features/library/AddToLibraryDialog';
 import { GameCover } from '../features/library/GameCover';
 import type { CatalogGame } from '../features/library/types';
@@ -28,7 +32,14 @@ import { messages } from '../i18n/messages';
 import { ApiError } from '../lib/api/client';
 import { getErrorCode } from '../lib/api/errors';
 import { formatDate, formatYear } from '../lib/format';
-import { ambientBackground, brandGradient, glassSx, panelSx, reducedMotion } from '../theme/brand';
+import {
+  ambientBackground,
+  brandGradient,
+  glassSx,
+  ink,
+  panelSx,
+  reducedMotion,
+} from '../theme/brand';
 
 const t = messages.catalog;
 
@@ -131,7 +142,9 @@ export function CatalogGamePage() {
 
 function CatalogGameView({ game }: { game: CatalogGame }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  const { data: user } = useCurrentUser();
   const [adding, setAdding] = useState(false);
   const [artworkLoaded, setArtworkLoaded] = useState(false);
 
@@ -153,7 +166,7 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
           isolation: 'isolate',
           overflow: 'hidden',
           borderRadius: { xs: 3, md: 4 },
-          border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+          border: `1px solid ${alpha(ink(theme), 0.08)}`,
           background: ambientBackground(theme),
           minHeight: { md: 460 },
           display: 'flex',
@@ -216,7 +229,7 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
               flexShrink: 0,
               borderRadius: 2,
               overflow: 'hidden',
-              boxShadow: `0 30px 60px -20px rgba(0,0,0,0.9), 0 0 0 1px ${alpha(theme.palette.common.white, 0.14)}`,
+              boxShadow: `0 30px 60px -20px rgba(0,0,0,0.9), 0 0 0 1px ${alpha(ink(theme), 0.14)}`,
             })}
           >
             <GameCover
@@ -306,8 +319,17 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
                 variant="contained"
                 size="large"
                 startIcon={<AddIcon />}
-                disabled={!canAdd}
-                onClick={() => setAdding(true)}
+                disabled={Boolean(user) && !canAdd}
+                // Anonymous visitors log in first and come back to this page.
+                onClick={() =>
+                  user
+                    ? setAdding(true)
+                    : void navigate('/login', {
+                        state: {
+                          from: { pathname: location.pathname, search: location.search },
+                        } satisfies AuthLocationState,
+                      })
+                }
                 sx={(theme) => ({
                   px: 3.5,
                   fontWeight: 800,
@@ -315,12 +337,17 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
                   background: brandGradient(theme, 110),
                   boxShadow: `0 14px 30px -12px ${alpha(theme.palette.primary.main, 0.9)}`,
                   '&:hover': { background: brandGradient(theme, 110), filter: 'brightness(1.08)' },
-                  '&.Mui-disabled': { background: alpha(theme.palette.common.white, 0.08) },
+                  '&.Mui-disabled': { background: alpha(ink(theme), 0.08) },
                 })}
               >
                 {t.addGame}
               </Button>
-              {game.platforms.length === 0 ? (
+              <WishlistButton game={game} wishlistItemId={game.wishlistItemId} variant="header" />
+              {!user ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t.loginToAdd}
+                </Typography>
+              ) : game.platforms.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   {t.noPlatforms}
                 </Typography>
@@ -371,43 +398,50 @@ function CatalogGameView({ game }: { game: CatalogGame }) {
           ) : null}
         </Stack>
 
-        <Box
-          component="section"
-          aria-labelledby="catalog-information"
-          sx={(theme) => ({
-            ...panelSx(theme, theme.palette.secondary.main),
-            p: { xs: 2.5, md: 3 },
-          })}
-        >
-          <Typography
-            id="catalog-information"
-            variant="overline"
-            component="h2"
-            sx={{ fontWeight: 800, letterSpacing: 1.8, color: 'secondary.main' }}
-          >
-            {t.information}
-          </Typography>
+        <Stack spacing={{ xs: 3, md: 4 }} sx={{ minWidth: 0 }}>
           <Box
-            component="dl"
-            sx={{ m: 0, '& > div + div': { borderTop: 1, borderColor: 'divider' } }}
+            component="section"
+            aria-labelledby="catalog-information"
+            sx={(theme) => ({
+              ...panelSx(theme, theme.palette.secondary.main),
+              p: { xs: 2.5, md: 3 },
+            })}
           >
-            <SheetRow icon={<EventIcon fontSize="small" />} label={t.releaseDate}>
-              {formatDate(game.releaseDate)}
-            </SheetRow>
-            <SheetRow icon={<SportsEsportsIcon fontSize="small" />} label={t.platforms}>
-              <Tags items={game.platforms.map((p) => p.name)} />
-            </SheetRow>
-            <SheetRow icon={<CategoryIcon fontSize="small" />} label={t.genres}>
-              <Tags items={genres} />
-            </SheetRow>
-            <SheetRow icon={<BusinessIcon fontSize="small" />} label={t.developers}>
-              {game.developers.join(', ') || t.none}
-            </SheetRow>
-            <SheetRow icon={<StorefrontIcon fontSize="small" />} label={t.publishers}>
-              {game.publishers.join(', ') || t.none}
-            </SheetRow>
+            <Typography
+              id="catalog-information"
+              variant="overline"
+              component="h2"
+              sx={{ fontWeight: 800, letterSpacing: 1.8, color: 'secondary.main' }}
+            >
+              {t.information}
+            </Typography>
+            <Box
+              component="dl"
+              sx={{ m: 0, '& > div + div': { borderTop: 1, borderColor: 'divider' } }}
+            >
+              <SheetRow icon={<EventIcon fontSize="small" />} label={t.releaseDate}>
+                {formatDate(game.releaseDate)}
+              </SheetRow>
+              <SheetRow icon={<SportsEsportsIcon fontSize="small" />} label={t.platforms}>
+                <Tags items={game.platforms.map((p) => p.name)} />
+              </SheetRow>
+              <SheetRow icon={<CategoryIcon fontSize="small" />} label={t.genres}>
+                <Tags items={genres} />
+              </SheetRow>
+              <SheetRow icon={<BusinessIcon fontSize="small" />} label={t.developers}>
+                {game.developers.join(', ') || t.none}
+              </SheetRow>
+              <SheetRow icon={<StorefrontIcon fontSize="small" />} label={t.publishers}>
+                {game.publishers.join(', ') || t.none}
+              </SheetRow>
+            </Box>
           </Box>
-        </Box>
+          <GamePricePanel
+            key={`${game.provider}/${game.externalId}`}
+            provider={game.provider}
+            externalId={game.externalId}
+          />
+        </Stack>
       </Box>
 
       {game.relatedGames.length > 0 ? <RelatedGamesRail games={game.relatedGames} /> : null}

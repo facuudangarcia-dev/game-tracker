@@ -109,7 +109,10 @@ describe('Catalog highlights for the Home (e2e)', () => {
     expect(catalog.imageVariants).toEqual(['artwork']);
   });
 
-  it('requires a session', async () => {
-    await request(app.getHttpServer()).get('/api/catalog/highlights').expect(401);
+  it('is public: the Home shows it to anonymous visitors too', async () => {
+    await request(app.getHttpServer()).get('/api/catalog/highlights').expect(200);
+    await request(app.getHttpServer())
+      .get('/api/catalog/igdb/images/arrecent?size=artwork')
+      .expect(200);
   });
 });

@@ -62,8 +62,9 @@ describe('Catalog base: platforms, genres and games (e2e)', () => {
   }
 
   describe('GET /api/platforms', () => {
-    it('requires a session', async () => {
-      await request(app.getHttpServer()).get('/api/platforms').expect(401);
+    it('is public reference data (Explore filters, decision #64)', async () => {
+      const response = await request(app.getHttpServer()).get('/api/platforms').expect(200);
+      expect((response.body as unknown[]).length).toBeGreaterThan(0);
     });
 
     it('lists the preloaded platforms in display order', async () => {

@@ -1,12 +1,17 @@
 import { CatalogProvider } from '../catalog-provider';
 import {
+  type CatalogDiscoverFilter,
   type CatalogGameDetails,
   type CatalogGameSummary,
   type CatalogHighlight,
   type CatalogHighlightKind,
   type CatalogImage,
   type CatalogImageVariant,
+  type CatalogRelease,
+  type CatalogReleaseFilter,
+  type CatalogStoreIds,
   type CatalogTaxonomyEntry,
+  type ReleaseDatePrecision,
   CatalogUnavailableError,
   type GameCatalogProvider,
 } from '../game-catalog-provider';
@@ -53,6 +58,39 @@ const MAX_SCREENSHOTS = 12;
 const MAX_SIMILAR_GAMES = 10;
 /** Smaller artworks look pixelated as a full-width background. */
 const MIN_WIDE_IMAGE_WIDTH = 1280;
+/** Fields of a game card (poster + wide image + platforms). */
+const CARD_FIELDS = `name,first_release_date,cover.image_id,${WIDE_IMAGE_FIELDS},platforms,game_type,themes`;
+/**
+ * Release calendar: at most this many release dates per query (IGDB pages are
+ * 500 rows); a game has one row per platform and region.
+ */
+const RELEASES_MAX_PAGES = 4;
+/** IGDB `external_game_sources` id of Steam (verified on 2026-10-10). */
+const IGDB_STEAM_SOURCE = 1;
+/** Top-rated needs a minimum of ratings to be meaningful. */
+const TOP_RATED_MIN_COUNT = 10;
+const NUMERIC_ID = /^\d{1,18}$/;
+
+/**
+ * IGDB `date_format` of a release date: 0 = exact day, 1 = month, 2 = year,
+ * 3-6 = quarter, 7 = TBD (verified on 2026-10-10).
+ */
+const IGDB_DATE_PRECISION: Record<number, ReleaseDatePrecision> = {
+  0: 'day',
+  1: 'month',
+  2: 'year',
+  3: 'quarter',
+  4: 'quarter',
+  5: 'quarter',
+  6: 'quarter',
+};
+const IGDB_DATE_TBD = 7;
+const PRECISION_RANK: Record<ReleaseDatePrecision, number> = {
+  day: 0,
+  month: 1,
+  quarter: 2,
+  year: 3,
+};
 
 interface IgdbGame {
   id: number;
@@ -69,6 +107,15 @@ interface IgdbGame {
   similar_games?: IgdbGame[];
   genres?: { id: number; name: string }[];
   involved_companies?: { developer?: boolean; publisher?: boolean; company?: { name?: string } }[];
+  hypes?: number;
+  external_games?: { uid?: string; external_game_source?: number }[];
+}
+
+interface IgdbReleaseDate {
+  date?: number;
+  date_format?: number;
+  platform?: number;
+  game?: IgdbGame;
 }
 
 interface IgdbImage {
@@ -171,6 +218,188 @@ export class IgdbProvider implements GameCatalogProvider {
     return games.filter((game) => isAllowedGameType(game.game_type)).map(toHighlight);
   }
 
+  async discoverGames(
+    filter: CatalogDiscoverFilter,
+    now = new Date(),
+  ): Promise<CatalogHighlight[]> {
+    const conditions = [cardConditions(), ...listConditions(filter)];
+    if (filter.releasedFrom) {
+      conditions.push(`first_release_date >= ${dayStartSeconds(filter.releasedFrom)}`);
+    }
+    if (filter.releasedTo) {
+      conditions.push(`first_release_date < ${dayStartSeconds(filter.releasedTo) + DAY_SECONDS}`);
+    }
+    const exclude = numericIds(filter.excludeExternalIds);
+    if (exclude.length > 0) {
+      conditions.push(`id != (${exclude.join(',')})`);
+    }
+    let sort: string;
+    switch (filter.sort) {
+      case 'top-rated':
+        conditions.push(`total_rating_count >= ${TOP_RATED_MIN_COUNT}`);
+        sort = 'total_rating desc';
+        break;
+      case 'newest':
+        conditions.push(`first_release_date <= ${Math.floor(now.getTime() / 1000)}`);
+        sort = 'first_release_date desc';
+        break;
+      case 'anticipated':
+        sort = 'hypes desc';
+        break;
+      default:
+        sort = 'total_rating_count desc';
+    }
+    const games = await this.client.query<IgdbGame>(
+      'games',
+      `fields ${CARD_FIELDS}; where ${conditions.join(' & ')}; ` +
+        `sort ${sort}; limit ${filter.limit}; offset ${filter.offset};`,
+    );
+    return games.filter(isShowable).map(toHighlight);
+  }
+
+  /** Similar games of all the given ones; games similar to several of them come first. */
+  async listSimilarGames(
+    externalIds: string[],
+    excludeExternalIds: string[],
+    limit: number,
+  ): Promise<CatalogHighlight[]> {
+    const ids = numericIds(externalIds);
+    if (ids.length === 0) {
+      return [];
+    }
+    const prefixed = CARD_FIELDS.split(',')
+      .map((field) => `similar_games.${field}`)
+      .join(',');
+    const games = await this.client.query<IgdbGame>(
+      'games',
+      `fields ${prefixed}; where id = (${ids.join(',')}); limit ${ids.length};`,
+    );
+    const excluded = new Set([...excludeExternalIds, ...ids]);
+    const ranked = new Map<number, { game: IgdbGame; count: number; order: number }>();
+    let order = 0;
+    for (const similar of games.flatMap((game) => game.similar_games ?? [])) {
+      if (excluded.has(String(similar.id)) || !isShowable(similar) || !similar.cover?.image_id) {
+        continue;
+      }
+      const entry = ranked.get(similar.id);
+      if (entry) {
+        entry.count++;
+      } else {
+        ranked.set(similar.id, { game: similar, count: 1, order: order++ });
+      }
+    }
+    return [...ranked.values()]
+      .sort((a, b) => b.count - a.count || a.order - b.order)
+      .slice(0, limit)
+      .map((entry) => toHighlight(entry.game));
+  }
+
+  /**
+   * Release dates in the range (one row per game, platform and region), grouped
+   * by game: its earliest date in the range, with the platforms released that
+   * day. Only games with some interest (IGDB "hypes") and a cover: the full
+   * list has thousands of unknown releases a month.
+   */
+  async listReleases(
+    from: string,
+    to: string,
+    filter: CatalogReleaseFilter,
+  ): Promise<CatalogRelease[]> {
+    const conditions = [
+      `date >= ${dayStartSeconds(from)}`,
+      `date < ${dayStartSeconds(to) + DAY_SECONDS}`,
+      `date_format != ${IGDB_DATE_TBD}`,
+      `game.game_type = (${ALLOWED_GAME_TYPE_IDS.join(',')})`,
+      'game.cover != null',
+      `game.themes != (${IGDB_EROTIC_THEME_ID})`,
+      'game.hypes > 0',
+    ];
+    const platforms = numericIds(filter.platformExternalIds);
+    if (platforms.length > 0) {
+      conditions.push(`platform = (${platforms.join(',')})`);
+    }
+    const genres = numericIds(filter.genreExternalIds);
+    if (genres.length > 0) {
+      conditions.push(`game.genres = (${genres.join(',')})`);
+    }
+    const gameFields = `${CARD_FIELDS},hypes`
+      .split(',')
+      .map((field) => `game.${field}`)
+      .join(',');
+
+    const rows: IgdbReleaseDate[] = [];
+    for (let page = 0; page < RELEASES_MAX_PAGES; page++) {
+      const batch = await this.client.query<IgdbReleaseDate>(
+        'release_dates',
+        `fields date,date_format,platform,${gameFields}; where ${conditions.join(' & ')}; ` +
+          `sort date asc; limit ${PAGE_SIZE}; offset ${page * PAGE_SIZE};`,
+      );
+      rows.push(...batch);
+      if (batch.length < PAGE_SIZE) {
+        break;
+      }
+    }
+    return groupReleases(rows);
+  }
+
+  async listUndatedGames(filter: CatalogReleaseFilter, limit: number): Promise<CatalogHighlight[]> {
+    const conditions = [
+      cardConditions(),
+      'first_release_date = null',
+      'hypes > 0',
+      ...listConditions(filter),
+    ];
+    const games = await this.client.query<IgdbGame>(
+      'games',
+      `fields ${CARD_FIELDS}; where ${conditions.join(' & ')}; sort hypes desc; limit ${limit};`,
+    );
+    return games.filter(isShowable).map(toHighlight);
+  }
+
+  async getStoreIds(externalIds: string[]): Promise<Map<string, CatalogStoreIds>> {
+    const ids = numericIds(externalIds);
+    const result = new Map<string, CatalogStoreIds>();
+    for (let start = 0; start < ids.length; start += PAGE_SIZE) {
+      const chunk = ids.slice(start, start + PAGE_SIZE);
+      const games = await this.client.query<IgdbGame>(
+        'games',
+        'fields external_games.uid,external_games.external_game_source; ' +
+          `where id = (${chunk.join(',')}); limit ${chunk.length};`,
+      );
+      for (const game of games) {
+        const steam = (game.external_games ?? []).find(
+          (external) =>
+            external.external_game_source === IGDB_STEAM_SOURCE &&
+            /^\d{1,10}$/.test(external.uid ?? ''),
+        );
+        result.set(String(game.id), { steamAppId: steam?.uid ?? null });
+      }
+    }
+    return result;
+  }
+
+  async findBySteamAppIds(appIds: number[]): Promise<Map<number, string>> {
+    const ids = [...new Set(appIds.filter((id) => Number.isInteger(id) && id > 0))];
+    const result = new Map<number, string>();
+    for (let start = 0; start < ids.length; start += PAGE_SIZE) {
+      const chunk = ids.slice(start, start + PAGE_SIZE);
+      const rows = await this.client.query<{ uid?: string; game?: number }>(
+        'external_games',
+        'fields uid,game; ' +
+          `where external_game_source = ${IGDB_STEAM_SOURCE} & uid = (${chunk.map((id) => `"${id}"`).join(',')}); ` +
+          `limit ${PAGE_SIZE};`,
+      );
+      for (const row of rows) {
+        const appId = Number(row.uid);
+        // An app may appear for several catalog entries: the first one wins.
+        if (typeof row.game === 'number' && chunk.includes(appId) && !result.has(appId)) {
+          result.set(appId, String(row.game));
+        }
+      }
+    }
+    return result;
+  }
+
   isValidImageRef(ref: string): boolean {
     return IMAGE_REF_PATTERN.test(ref);
   }
@@ -268,6 +497,84 @@ function toTaxonomyEntry(entry: IgdbNamedEntry): CatalogTaxonomyEntry {
 
 function isAllowedGameType(gameType: number | undefined): boolean {
   return gameType !== undefined && (ALLOWED_GAME_TYPE_IDS as readonly number[]).includes(gameType);
+}
+
+/** Allowed type and no adult content (checked again on what IGDB returns). */
+function isShowable(game: IgdbGame): boolean {
+  return isAllowedGameType(game.game_type) && !(game.themes ?? []).includes(IGDB_EROTIC_THEME_ID);
+}
+
+/** Conditions every listed game meets: allowed type, a cover, no adult content. */
+function cardConditions(): string {
+  return (
+    `game_type = (${ALLOWED_GAME_TYPE_IDS.join(',')}) & cover != null & ` +
+    `themes != (${IGDB_EROTIC_THEME_ID})`
+  );
+}
+
+function listConditions(filter: CatalogReleaseFilter): string[] {
+  const conditions: string[] = [];
+  const platforms = numericIds(filter.platformExternalIds);
+  if (platforms.length > 0) {
+    conditions.push(`platforms = (${platforms.join(',')})`);
+  }
+  const genres = numericIds(filter.genreExternalIds);
+  if (genres.length > 0) {
+    conditions.push(`genres = (${genres.join(',')})`);
+  }
+  return conditions;
+}
+
+/** Only numeric ids ever reach a query (they come from our database, but still). */
+function numericIds(ids: string[]): string[] {
+  return [...new Set(ids.filter((id) => NUMERIC_ID.test(id)))];
+}
+
+/** Unix seconds of 00:00 UTC of a YYYY-MM-DD date. */
+function dayStartSeconds(isoDate: string): number {
+  return Math.floor(Date.parse(`${isoDate}T00:00:00Z`) / 1000);
+}
+
+function isoDay(seconds: number): string {
+  return new Date(seconds * 1000).toISOString().slice(0, 10);
+}
+
+/** One entry per game: earliest date, most precise format of that date, its platforms. */
+export function groupReleases(rows: IgdbReleaseDate[]): CatalogRelease[] {
+  const byGame = new Map<
+    number,
+    { game: IgdbGame; date: number; precision: ReleaseDatePrecision; platforms: Set<string> }
+  >();
+  for (const row of rows) {
+    const precision = IGDB_DATE_PRECISION[row.date_format ?? -1];
+    if (!row.game || row.date === undefined || !precision || !isShowable(row.game)) {
+      continue;
+    }
+    const entry = byGame.get(row.game.id);
+    if (!entry || row.date < entry.date) {
+      byGame.set(row.game.id, {
+        game: row.game,
+        date: row.date,
+        precision,
+        platforms: new Set(row.platform === undefined ? [] : [String(row.platform)]),
+      });
+    } else if (row.date === entry.date) {
+      if (PRECISION_RANK[precision] < PRECISION_RANK[entry.precision]) {
+        entry.precision = precision;
+      }
+      if (row.platform !== undefined) {
+        entry.platforms.add(String(row.platform));
+      }
+    }
+  }
+  return [...byGame.values()]
+    .sort((a, b) => a.date - b.date || (b.game.hypes ?? 0) - (a.game.hypes ?? 0))
+    .map((entry) => ({
+      ...toHighlight(entry.game),
+      date: isoDay(entry.date),
+      precision: entry.precision,
+      releasePlatformExternalIds: [...entry.platforms],
+    }));
 }
 
 /** Apicalypse search strings are double-quoted: drop characters that could break out. */
